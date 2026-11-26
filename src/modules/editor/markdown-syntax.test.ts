@@ -21,6 +21,12 @@ describe('Markdown fenced code detection', () => {
     expect(isFenceClosing('``` trailing text', fence)).toBe(false);
   });
 
+  it('does not treat the first document line as preceding context', () => {
+    const doc = Text.of(['```ts', 'const value = 1;', '```']);
+    expect(getFenceStateBeforeLine(doc, 1)).toBeNull();
+    expect(getFenceStateBeforeLine(doc, 2)).toEqual({ marker: '`', length: 3 });
+  });
+
   it('tracks whether a line is inside a fenced code block', () => {
     const doc = Text.of(['Intro', '```ts', 'const value = **literal**;', '```', 'After']);
     expect(getFenceStateBeforeLine(doc, 2)).toBeNull();

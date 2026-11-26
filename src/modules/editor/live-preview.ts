@@ -36,21 +36,21 @@ function buildDecorations(view: EditorView): DecorationSet {
           hide(lineStart, lineEnd);
           fence = openingFence;
         } else {
-          const heading = /^(#{1,6})(\\s+)(.+)$/.exec(line);
+          const heading = /^(#{1,6})(\s+)(.+)$/.exec(line);
           if (heading) {
             const markerEnd = lineStart + heading[1].length + heading[2].length;
             hide(lineStart, markerEnd);
             addMark(markerEnd, lineEnd, `gn-heading gn-heading-${heading[1].length}`);
           }
 
-          const quote = /^(\\s*&gt;|\\s*>)(\\s?)/.exec(line);
+          const quote = /^(\s*&gt;|\s*>)(\s?)/.exec(line);
           if (quote) {
             const markerEnd = lineStart + quote[0].length;
             hide(lineStart, markerEnd);
             addMark(markerEnd, lineEnd, 'gn-blockquote');
           }
 
-          const listMarker = /^(\\s*)([-*+]|\\d+\\.)(\\s+)/.exec(line);
+          const listMarker = /^(\s*)([-*+]|\d+\.)(\s+)/.exec(line);
           if (listMarker) {
             const markerStart = lineStart + listMarker[1].length;
             const markerEnd = lineStart + listMarker[0].length;
@@ -59,7 +59,7 @@ function buildDecorations(view: EditorView): DecorationSet {
           }
 
           const codeRanges: Array<{ from: number; to: number }> = [];
-          const codePattern = /(`+)([^`\\n]+)\\1/g;
+          const codePattern = /(`+)([^`\n]+)\1/g;
           let code: RegExpExecArray | null;
           while ((code = codePattern.exec(line)) !== null) {
             const start = lineStart + code.index;
@@ -75,9 +75,9 @@ function buildDecorations(view: EditorView): DecorationSet {
             codeRanges.some(range => start < range.to && end > range.from);
 
           const patterns: Array<{ regex: RegExp; className: string; delimiterLength: (match: RegExpExecArray) => number; suffixLength: (match: RegExpExecArray) => number }> = [
-            { regex: /(\\*\\*|__)(.+?)\\1/g, className: 'gn-strong', delimiterLength: match => match[1].length, suffixLength: match => match[1].length },
+            { regex: /(\*\*|__)(.+?)\1/g, className: 'gn-strong', delimiterLength: match => match[1].length, suffixLength: match => match[1].length },
             { regex: /~~(.+?)~~/g, className: 'gn-strike', delimiterLength: () => 2, suffixLength: () => 2 },
-            { regex: /(?<!\\*)\\*(?!\\*)([^*\\n]+)\\*(?!\\*)|(?<!_)_(?!_)([^_\\n]+)_(?!_)/g, className: 'gn-emphasis', delimiterLength: () => 1, suffixLength: () => 1 },
+            { regex: /(?<!\*)\*(?!\*)([^*\n]+)\*(?!\*)|(?<!_)_(?!_)([^_\n]+)_(?!_)/g, className: 'gn-emphasis', delimiterLength: () => 1, suffixLength: () => 1 },
           ];
 
           for (const pattern of patterns) {
@@ -97,7 +97,7 @@ function buildDecorations(view: EditorView): DecorationSet {
             }
           }
 
-          const linkPattern = /\\[([^\\]]+)\\]\\(([^)]+)\\)/g;
+          const linkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
           let link: RegExpExecArray | null;
           while ((link = linkPattern.exec(line)) !== null) {
             const start = lineStart + link.index;

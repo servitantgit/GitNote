@@ -21,7 +21,7 @@ export function isFenceClosing(line: string, fence: FenceState): boolean {
 /** Finds whether a document line is inside a fenced code block. */
 export function getFenceStateBeforeLine(doc: Text, lineNumber: number): FenceState | null {
   let fence: FenceState | null = null;
-  const lastLine = Math.min(Math.max(1, lineNumber - 1), doc.lines);
+  const lastLine = Math.min(Math.max(0, lineNumber - 1), doc.lines);
 
   for (let number = 1; number <= lastLine; number += 1) {
     const line = doc.line(number).text;
