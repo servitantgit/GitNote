@@ -14,7 +14,6 @@ describe('WorkspaceManager', () => {
     workspace.openTab(tabA);
     workspace.openTab(tabB);
     workspace.selectTab(tabA.id);
-
     expect(workspace.getSnapshot().tabs.map(tab => tab.id)).toEqual(['tab-a', 'tab-b']);
     expect(workspace.getSnapshot().activeTabId).toBe(tabA.id);
   });
@@ -27,7 +26,6 @@ describe('WorkspaceManager', () => {
     workspace.openTab(tabB);
     workspace.activateRepository(repoA.id);
     workspace.selectTab(tabB.id);
-
     expect(workspace.canUseRemote(repoA.id, 'push')).toBe(true);
     expect(workspace.canUseRemote(repoB.id, 'push')).toBe(false);
   });
@@ -38,23 +36,20 @@ describe('WorkspaceManager', () => {
     workspace.registerRepository(repoB);
     workspace.activateRepository(repoA.id);
     workspace.activateRepository(repoB.id);
-
     for (const operation of ['read', 'sync', 'commit', 'push'] as const) {
       expect(workspace.canUseRemote(repoA.id, operation)).toBe(false);
       expect(workspace.canUseRemote(repoB.id, operation)).toBe(true);
     }
   });
 
-  it('removes repository tabs together when a repository is removed', () => {
+  it('does not silently activate another repository when the active one is removed', () => {
     const workspace = new WorkspaceManager();
     workspace.registerRepository(repoA);
     workspace.registerRepository(repoB);
-    workspace.openTab(tabA);
-    workspace.openTab(tabB);
+    workspace.activateRepository(repoA.id);
     workspace.removeRepository(repoA.id);
-
-    expect(workspace.getSnapshot().tabs).toEqual([tabB]);
-    expect(workspace.getSnapshot().activeRepositoryId).toBe(repoB.id);
+    expect(workspace.getSnapshot().activeRepositoryId).toBeNull();
+    expect(workspace.canUseRemote(repoB.id, 'push')).toBe(false);
   });
 
   it('restores a snapshot and drops tabs whose repository no longer exists', () => {
@@ -64,10 +59,17 @@ describe('WorkspaceManager', () => {
       activeRepositoryId: repoB.id,
       activeTabId: tabB.id,
     });
-
     expect(workspace.getSnapshot().tabs).toEqual([tabA]);
-    expect(workspace.getSnapshot().activeRepositoryId).toBe(repoA.id);
+    expect(workspace.getSnapshot().activeRepositoryId).toBeNull();
     expect(workspace.getSnapshot().activeTabId).toBe(tabA.id);
+  });
+
+  it('updates tab metadata without changing its repository context', () => {
+    const workspace = new WorkspaceManager();
+    workspace.registerRepository(repoA);
+    workspace.openTab(tabA);
+    workspace.updateTab(tabA.id, { title: 'Renamed' });
+    expect(workspace.getSnapshot().tabs[0]).toMatchObject({ title: 'Renamed', repositoryId: repoA.id, branch: 'main' });
   });
 
   it('rejects tabs for unknown repositories and conflicting tab IDs', () => {

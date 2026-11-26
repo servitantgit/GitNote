@@ -1,16 +1,17 @@
 # GitNotes
 
-GitNotes is a local-first workspace for notes and documents with Git-based version control. It is a separate product from MD-Editor.
+GitNotes is a local-first workspace for notes and documents with Git-based version control. It is developed independently from MD-Editor.
 
 ## Current foundation
 
 - React + TypeScript + Vite application shell.
 - CodeMirror 6 editor integration.
-- Source / Live Preview / Preview modes. Live Preview currently renders common Markdown syntax inline (headings, emphasis, strike-through, inline code, links, quotes and list markers); it is an initial subset, not full WYSIWYG editing.
+- Source / Live Preview / Preview modes.
 - Local note creation, selection, renaming, deletion and autosaving through IndexedDB (Dexie).
-- Local Working Tree domain model, not yet connected to GitHub.
-- Workspace domain manager for global tabs across repository contexts. Selecting a tab does not activate remote access for its repository; remote operations are gated by explicit repository activation.
-- No GitHub authentication or remote repository operations are enabled in this foundation.
+- Global document tabs with close/select behavior.
+- Workspace repository registrations, active repository context and open tabs persist in IndexedDB.
+- Selecting a tab does not activate remote access for its repository; remote operations require explicit repository activation.
+- No GitHub authentication or remote repository operations are enabled yet.
 
 ## Development
 
@@ -21,6 +22,6 @@ npm test
 npm run build
 ```
 
-## Scope and safety
+## Scope and data compatibility
 
-GitNotes is developed independently. It does not modify the existing MD-Editor project. Local note operations do not create Git commits or make network requests.
+GitNotes keeps the existing IndexedDB database identifier `gitnote-local` so notes created by the earlier GitNote foundation remain available after the product rename. Local note and workspace operations do not create Git commits or make network requests.

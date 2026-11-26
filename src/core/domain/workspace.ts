@@ -24,10 +24,7 @@ export interface WorkspaceSnapshot {
   activeTabId: string | null;
 }
 
-/**
- * Coordinates globally open tabs and the single repository currently allowed
- * to perform remote operations. Editing a tab never changes repository focus.
- */
+/** Coordinates global tabs separately from the repository enabled for remote Git operations. */
 export class WorkspaceManager {
   private repositories = new Map<string, WorkspaceRepository>();
   private tabs: WorkspaceTab[] = [];
@@ -51,18 +48,14 @@ export class WorkspaceManager {
   removeRepository(repositoryId: string): void {
     this.repositories.delete(repositoryId);
     this.tabs = this.tabs.filter(tab => tab.repositoryId !== repositoryId);
-    if (this.activeRepositoryId === repositoryId) {
-      this.activeRepositoryId = this.repositories.keys().next().value ?? null;
-    }
+    if (this.activeRepositoryId === repositoryId) this.activeRepositoryId = null;
     if (this.activeTabId && !this.tabs.some(tab => tab.id === this.activeTabId)) {
       this.activeTabId = this.tabs[0]?.id ?? null;
     }
   }
 
   openTab(tab: WorkspaceTab): void {
-    if (!this.repositories.has(tab.repositoryId)) {
-      throw new Error(`Unknown repository: ${tab.repositoryId}`);
-    }
+    if (!this.repositories.has(tab.repositoryId)) throw new Error(`Unknown repository: ${tab.repositoryId}`);
     const existing = this.tabs.find(item => item.id === tab.id);
     if (existing) {
       if (existing.repositoryId !== tab.repositoryId || existing.noteId !== tab.noteId) {
@@ -73,6 +66,12 @@ export class WorkspaceManager {
     }
     this.tabs.push(tab);
     this.activeTabId = tab.id;
+  }
+
+  updateTab(tabId: string, updates: Partial<Pick<WorkspaceTab, 'title' | 'branch'>>): void {
+    const index = this.tabs.findIndex(tab => tab.id === tabId);
+    if (index < 0) throw new Error(`Unknown tab: ${tabId}`);
+    this.tabs[index] = { ...this.tabs[index], ...updates };
   }
 
   closeTab(tabId: string): void {
@@ -109,9 +108,7 @@ export class WorkspaceManager {
 
   private normalize(): void {
     this.tabs = this.tabs.filter(tab => this.repositories.has(tab.repositoryId));
-    if (this.activeRepositoryId && !this.repositories.has(this.activeRepositoryId)) {
-      this.activeRepositoryId = this.repositories.keys().next().value ?? null;
-    }
+    if (this.activeRepositoryId && !this.repositories.has(this.activeRepositoryId)) this.activeRepositoryId = null;
     if (this.activeTabId && !this.tabs.some(tab => tab.id === this.activeTabId)) {
       this.activeTabId = this.tabs[0]?.id ?? null;
     }

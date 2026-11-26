@@ -1,4 +1,4 @@
-# GitNote architecture
+# GitNotes architecture
 
 ## Principles
 
@@ -10,29 +10,31 @@
 
 ## Current implementation
 
-- `src/app`: application shell and local workspace orchestration.
-- `src/modules/editor`: CodeMirror 6 editor surface, mode selector, and an inline decoration-based Live Preview subset.
-- `src/infrastructure/storage`: Dexie database and local note/draft stores.
-- `src/core/domain`: repository capabilities, globally scoped workspace tabs, and Working Tree model.
+- `src/app`: application shell, local note list, document tabs and workspace orchestration.
+- `src/modules/editor`: CodeMirror 6 editor surface, mode selector and inline Live Preview subset.
+- `src/infrastructure/storage`: Dexie database and local note/draft/workspace stores.
+- `src/core/domain`: repository capabilities, globally scoped workspace tabs and Working Tree model.
 
-## Workspace manager
+## Workspace manager and UI integration
 
-`WorkspaceManager` keeps repository registrations, globally open document tabs, active-tab selection, and active remote-repository focus as separate state.
+`WorkspaceManager` keeps repository registrations, globally open document tabs, active-tab selection and active remote-repository focus as separate state.
 
+- Open tabs and repository context are persisted in the `workspaces` IndexedDB table.
 - Selecting a tab does not silently activate its repository.
 - Tabs belonging to inactive repositories remain open and locally editable.
 - Remote read/sync/commit/push operations are permitted only for the explicitly active repository.
 - Every tab carries its repository ID and branch; callers must use that context for document operations.
-- Removing a repository also removes its tabs from the workspace snapshot. Local note data is not deleted by this domain operation.
-- The manager is a pure domain service. Persistence and UI integration are separate layers.
+- Removing a repository does not silently activate another repository.
+- Closing a tab does not delete its note. Deleting a note removes it from local note storage and closes its corresponding tab.
+- The current UI integrates local-workspace notes. GitHub repository registration and loading notes from remote repositories remain future work.
 
-## Local note persistence
+## Local persistence and compatibility
 
-Notes are stored in IndexedDB in the `notes` table. Each note has a stable ID, repository ID, title, content, and timestamps. The current starter UI still opens a single local workspace. The workspace manager is now implemented and tested as a domain layer; repository registration UI, durable workspace snapshot persistence, and remote Git operations remain future work.
+Notes are stored in IndexedDB in the `notes` table. Workspace snapshots are stored in the `workspaces` table. The Dexie database name remains `gitnote-local` to preserve data created by the previous GitNote foundation. Schema version 3 adds workspace snapshots without recreating the existing notes store.
 
 ## Planned boundaries
 
-- `git-engine`: local Working Tree journal, tree construction, commit batching, conflict detection and GitHub transport.
+- `git-engine`: repository-scoped operation journal, tree construction, commit batching, conflict detection and GitHub transport.
 - `attachments`: note-scoped attachment lifecycle and format-handler registry.
 - `documents`: format adapters for Markdown and office documents.
 - `settings`, `help`, `search`: independent modules with versioned data/configuration.
