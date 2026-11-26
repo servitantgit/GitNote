@@ -1,5 +1,8 @@
 # GitNotes
 
+[![Tests](https://github.com/servitantgit/GitNote/actions/workflows/ci.yml/badge.svg?branch=main&job=tests)](https://github.com/servitantgit/GitNote/actions/workflows/ci.yml)
+[![Production build](https://github.com/servitantgit/GitNote/actions/workflows/ci.yml/badge.svg?branch=main&job=build)](https://github.com/servitantgit/GitNote/actions/workflows/ci.yml)
+
 GitNotes is a local-first workspace for notes and documents with Git-based version control. It is developed independently from MD-Editor.
 
 ## Current foundation
