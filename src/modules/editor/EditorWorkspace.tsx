@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { redo, undo } from '@codemirror/commands';
+import { keymap } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -20,6 +21,24 @@ interface Props {
   content: string;
   onContentChange: (value: string) => void;
 }
+function applyInlineCommand(view: EditorView, before: string, after = before, placeholder = 'текст'): boolean {
+  const { from, to } = view.state.selection.main;
+  const result = wrapSelection(view.state.doc.toString(), { from, to }, before, after, placeholder);
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: result.text },
+    selection: { anchor: result.selection.from, head: result.selection.to },
+    scrollIntoView: true,
+  });
+  return true;
+}
+
+const markdownKeymap = keymap.of([
+  { key: 'Mod-b', run: view => applyInlineCommand(view, '**') },
+  { key: 'Mod-i', run: view => applyInlineCommand(view, '*') },
+  { key: 'Mod-Shift-x', run: view => applyInlineCommand(view, '~~') },
+  { key: 'Mod-k', run: view => applyInlineCommand(view, '[', '](https://)', 'текст посилання') },
+]);
+
 const modes: { id: EditorMode; label: string }[] = [
   { id: 'source', label: 'Source' },
   { id: 'live-preview', label: 'Live Preview' },
@@ -28,7 +47,7 @@ const modes: { id: EditorMode; label: string }[] = [
 
 export function EditorWorkspace({ mode, onModeChange, content, onContentChange }: Props) {
   const editorRef = useRef<EditorView | null>(null);
-  const extensions = useMemo(() => mode === 'live-preview' ? [markdown(), livePreviewExtension] : [markdown()], [mode]);
+  const extensions = useMemo(() => mode === 'live-preview' ? [markdown(), livePreviewExtension, markdownKeymap] : [markdown(), markdownKeymap], [mode]);
   const rendered = DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string);
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;
