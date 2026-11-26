@@ -1,6 +1,6 @@
-# GitNote
+# GitNotes
 
-GitNote is a local-first workspace for notes and documents with Git-based version control. It is a separate product from MD-Editor.
+GitNotes is a local-first workspace for notes and documents with Git-based version control. It is a separate product from MD-Editor.
 
 ## Current foundation
 
@@ -9,6 +9,7 @@ GitNote is a local-first workspace for notes and documents with Git-based versio
 - Source / Live Preview / Preview modes. Live Preview currently renders common Markdown syntax inline (headings, emphasis, strike-through, inline code, links, quotes and list markers); it is an initial subset, not full WYSIWYG editing.
 - Local note creation, selection, renaming, deletion and autosaving through IndexedDB (Dexie).
 - Local Working Tree domain model, not yet connected to GitHub.
+- Workspace domain manager for global tabs across repository contexts. Selecting a tab does not activate remote access for its repository; remote operations are gated by explicit repository activation.
 - No GitHub authentication or remote repository operations are enabled in this foundation.
 
 ## Development
@@ -22,4 +23,4 @@ npm run build
 
 ## Scope and safety
 
-GitNote is developed independently. It does not modify the existing MD-Editor project. Local note operations do not create Git commits or make network requests.
+GitNotes is developed independently. It does not modify the existing MD-Editor project. Local note operations do not create Git commits or make network requests.

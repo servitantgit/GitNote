@@ -13,12 +13,22 @@
 - `src/app`: application shell and local workspace orchestration.
 - `src/modules/editor`: CodeMirror 6 editor surface, mode selector, and an inline decoration-based Live Preview subset.
 - `src/infrastructure/storage`: Dexie database and local note/draft stores.
-- `src/core/domain`: repository capabilities and Working Tree model.
-- `src/core/contracts`: module contract types.
+- `src/core/domain`: repository capabilities, globally scoped workspace tabs, and Working Tree model.
+
+## Workspace manager
+
+`WorkspaceManager` keeps repository registrations, globally open document tabs, active-tab selection, and active remote-repository focus as separate state.
+
+- Selecting a tab does not silently activate its repository.
+- Tabs belonging to inactive repositories remain open and locally editable.
+- Remote read/sync/commit/push operations are permitted only for the explicitly active repository.
+- Every tab carries its repository ID and branch; callers must use that context for document operations.
+- Removing a repository also removes its tabs from the workspace snapshot. Local note data is not deleted by this domain operation.
+- The manager is a pure domain service. Persistence and UI integration are separate layers.
 
 ## Local note persistence
 
-Notes are stored in IndexedDB in the `notes` table. Each note has a stable ID, repository ID, title, content, and timestamps. The current starter uses a single local workspace ID. Autosave is debounced and does not create commits or contact GitHub.
+Notes are stored in IndexedDB in the `notes` table. Each note has a stable ID, repository ID, title, content, and timestamps. The current starter UI still opens a single local workspace. The workspace manager is now implemented and tested as a domain layer; repository registration UI, durable workspace snapshot persistence, and remote Git operations remain future work.
 
 ## Planned boundaries
 
@@ -27,4 +37,4 @@ Notes are stored in IndexedDB in the `notes` table. Each note has a stable ID, r
 - `documents`: format adapters for Markdown and office documents.
 - `settings`, `help`, `search`: independent modules with versioned data/configuration.
 
-These are planned boundaries, not claims that those modules are implemented.
+These are planned boundaries, not claims that they are implemented.
