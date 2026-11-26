@@ -5,8 +5,10 @@ GitNotes is a local-first workspace for notes and documents with Git-based versi
 ## Current foundation
 
 - React + TypeScript + Vite application shell.
-- CodeMirror 6 editor integration.
-- Source / Live Preview / Preview modes.
+- CodeMirror 6 editor with Source / Live Preview / Preview modes.
+- Markdown formatting toolbar for emphasis, links, headings, lists, blockquotes and separators.
+- CodeMirror undo/redo, standard keyboard editing commands, search and bracket matching.
+- GitHub-Flavored Markdown preview rendered through Marked and sanitized with DOMPurify.
 - Local note creation, selection, renaming, deletion and autosaving through IndexedDB (Dexie).
 - Global document tabs with close/select behavior.
 - Workspace repository registrations, active repository context and open tabs persist in IndexedDB.

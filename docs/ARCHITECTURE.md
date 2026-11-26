@@ -11,9 +11,17 @@
 ## Current implementation
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
-- `src/modules/editor`: CodeMirror 6 editor surface, mode selector and inline Live Preview subset.
+- `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview and Preview modes, Markdown formatting commands, selection-aware editing and reading statistics.
 - `src/infrastructure/storage`: Dexie database and local note/draft/workspace stores.
 - `src/core/domain`: repository capabilities, globally scoped workspace tabs and Working Tree model.
+
+## Editor behavior
+
+- Source and Live Preview share one persistent CodeMirror 6 instance. Switching to Preview hides the editor without destroying its undo history or selection.
+- The formatting toolbar supports bold, italic, strikethrough, inline code, links, headings, lists, blockquotes and horizontal rules.
+- Undo/redo use CodeMirror history. CodeMirror's standard editing keymaps and search panel remain available.
+- Preview renders GitHub-Flavored Markdown through Marked and sanitizes generated HTML with DOMPurify before insertion.
+- Editor content remains controlled by the active local note and is autosaved by the local note store.
 
 ## Workspace manager and UI integration
 
