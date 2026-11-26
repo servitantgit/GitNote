@@ -204,7 +204,8 @@ export function App() {
     : saveState === 'error' ? 'Помилка збереження'
       : saveState === 'loading' ? 'Завантаження…' : 'Збережено локально';
 
-  const activeRepository = workspace?.repositories.find(repository => repository.id === workspace.activeRepositoryId);
+  const activeRepositoryId = workspace?.activeRepositoryId ?? null;
+  const activeRepository = workspace?.repositories.find(repository => repository.id === activeRepositoryId);
   const activeTabRepository = activeTab ? workspace?.repositories.find(repository => repository.id === activeTab.repositoryId) : null;
   const remoteAllowed = Boolean(activeTab && managerRef.current?.canUseRemote(activeTab.repositoryId, 'sync'));
 
@@ -236,7 +237,7 @@ export function App() {
             {workspace?.tabs.map(tab => {
               const note = notes.find(item => item.id === tab.noteId);
               if (!note) return null;
-              const inactive = tab.repositoryId !== workspace.activeRepositoryId;
+              const inactive = tab.repositoryId !== activeRepositoryId;
               return <div className={`document-tab${tab.id === workspace.activeTabId ? ' active' : ''}${inactive ? ' inactive' : ''}`} key={tab.id}>
                 <button role="tab" aria-selected={tab.id === workspace.activeTabId} onClick={() => {
                   managerRef.current?.selectTab(tab.id);
