@@ -14,7 +14,7 @@ export function wrapSelection(text: string, range: TextRange, before: string, af
 export function prefixLines(text: string, range: TextRange, prefix: string): TextEdit {
   const from = Math.max(0, Math.min(range.from, text.length));
   const to = Math.max(from, Math.min(range.to, text.length));
-  const start = text.lastIndexOf('\n', from - 1) + 1;
+  const start = from === 0 ? 0 : text.lastIndexOf('\n', from - 1) + 1;
   const endProbe = to > from && text[to - 1] === '\n' ? to - 1 : to;
   const endOfLine = text.indexOf('\n', endProbe);
   const end = endOfLine === -1 ? text.length : endOfLine;
