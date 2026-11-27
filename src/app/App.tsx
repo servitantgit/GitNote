@@ -97,8 +97,7 @@ export function App() {
         let nextNotes = storedNotes;
         if (nextNotes.length === 0) {
           const welcomeNote = makeNote('Моя перша нотатка', INITIAL_CONTENT);
-          await documentSource.create(welcomeNote, welcomeNote.content);
-          await workspaceFileSystem.registerDocument(welcomeNote.repositoryId, welcomeNote.id, welcomeNote.path!);
+          await workspaceFileSystem.createDocument(welcomeNote, welcomeNote.path!);
           nextNotes = [welcomeNote];
         }
 
@@ -194,8 +193,7 @@ export function App() {
     if (saveState === 'loading') return;
     const note = makeNote();
     try {
-      await documentSource.create(note, note.content);
-      await workspaceFileSystem.registerDocument(note.repositoryId, note.id, note.path!);
+      await workspaceFileSystem.createDocument(note, note.path!);
       setNotes(current => [note, ...current]);
       openNote(note);
       setMode('source');
@@ -232,8 +230,7 @@ export function App() {
       const remaining = notes.filter(note => note.id !== activeNote.id);
       if (remaining.length === 0) {
         const replacement = makeNote();
-        await documentSource.create(replacement, replacement.content);
-        await workspaceFileSystem.registerDocument(replacement.repositoryId, replacement.id, replacement.path!);
+        await workspaceFileSystem.createDocument(replacement, replacement.path!);
         setNotes([replacement]);
         manager?.openTab(tabForNote(replacement));
       } else {

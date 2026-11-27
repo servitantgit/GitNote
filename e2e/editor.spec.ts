@@ -20,6 +20,8 @@ test('opens the workspace and initializes the local note', async ({ page }) => {
 
 test('creates a note, autosaves its content and restores it after reload', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Без назви');
   await page.getByLabel('Назва нотатки').fill('Browser test note');
 
   const editor = page.locator('.cm-content');
@@ -62,6 +64,7 @@ test('applies Markdown formatting from the toolbar to the selected text', async 
 
 test('deletes a note after confirmation', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
   await page.getByLabel('Назва нотатки').fill('Note to delete');
   await expect(page.getByRole('list', { name: 'Список нотаток' })).toContainText('Note to delete');
 
@@ -73,6 +76,7 @@ test('deletes a note after confirmation', async ({ page }) => {
 
 test('restores each note editor state and undo history after switching tabs', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
   const editor = page.locator('.cm-content');
 
   await editor.fill('Note A');
@@ -82,6 +86,7 @@ test('restores each note editor state and undo history after switching tabs', as
   await editor.press('ArrowRight');
 
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(2);
   await editor.fill('Note B');
 
   await page.getByRole('tab', { name: 'Без назви', exact: true }).first().click();
@@ -122,6 +127,7 @@ test('captures Source and Live Preview visual states for browser review', async 
 test('stores newly created notes as files in the local VFS', async ({ page }) => {
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
 
   const vfs = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -137,7 +143,7 @@ test('stores newly created notes as files in the local VFS', async ({ page }) =>
       transaction.onerror = () => reject(transaction.error);
     });
   });
-  const note = vfs.notes.find(item => item.content === '');
+  const note = vfs.notes.find(item => item.title === 'Без назви');
   expect(note?.path).toMatch(/^Notes\/.+\.md$/);
   expect(vfs.nodes).toContainEqual(expect.objectContaining({
     path: note?.path,

@@ -44,6 +44,35 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
     });
   }
 
+  async createDocument(document: import('../../core/domain/document-source').DocumentRecord, path: string): Promise<WorkspaceFileNode> {
+    const normalized = normalizeWorkspacePath(path);
+    if (!normalized) throw new Error('A document path is required.');
+    if (document.path && normalizeWorkspacePath(document.path) !== normalized) {
+      throw new Error('The document path does not match the requested workspace path.');
+    }
+    return database.transaction('rw', database.fileNodes, database.notes, async () => {
+      const nodes = await database.fileNodes.where('repositoryId').equals(document.repositoryId).toArray();
+      const parent = parentWorkspacePath(normalized);
+      assertParentFolder(nodes, parent);
+      if (nodes.some(node => node.path === normalized)) {
+        throw new Error(`Path already exists: ${normalized}`);
+      }
+      if (await database.notes.get(document.id)) {
+        throw new Error(`Document already exists: ${document.id}`);
+      }
+      const now = Date.now();
+      const note = { ...document, path: normalized, syncState: 'local' as const, updatedAt: now };
+      const node: WorkspaceFileNode = {
+        id: makeId(), repositoryId: document.repositoryId, path: normalized,
+        parentPath: parent, name: workspacePathName(normalized), kind: 'file',
+        documentId: document.id, createdAt: document.createdAt, updatedAt: now,
+      };
+      await database.notes.add(note);
+      await database.fileNodes.add(node);
+      return node;
+    });
+  }
+
   async registerDocument(repositoryId: string, documentId: string, path: string): Promise<WorkspaceFileNode> {
     const normalized = normalizeWorkspacePath(path);
     if (!normalized) throw new Error('A document path is required.');

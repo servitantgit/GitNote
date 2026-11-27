@@ -34,7 +34,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 ### Application shell and notes
 
 - React application shell with local note list, global document tabs and a document title field.
-- Create, select, rename and delete local notes.
+- Create, select, rename and delete local notes. New note records and their VFS file nodes are created in one IndexedDB transaction.
 - Debounced local autosave through IndexedDB/Dexie.
 - Local-only status is shown; GitHub authentication and remote repository selection are not implemented.
 - Startup safely handles the React StrictMode double invocation: if another initialization pass creates the `Notes` folder first, the second pass confirms the folder exists and continues.
@@ -89,7 +89,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [x] Introduce DocumentSource and local IndexedDB adapter.
 - [x] Add document path, base SHA and sync-state metadata.
 - [x] Introduce local VFS domain contract and IndexedDB implementation.
-- [x] Add folder creation, file registration, rename, move and recursive delete operations.
+- [x] Add folder creation, atomic document-plus-file creation, file registration, rename, move and recursive delete operations.
 - [x] Preserve CodeMirror EditorState per document tab.
 - [x] Use Lezer syntax-tree information to protect code ranges in Live Preview.
 - [ ] Verify and complete migration coverage for all pre-VFS IndexedDB states.
@@ -157,4 +157,4 @@ Only after editor and local workspace foundations are ready:
 - Attachments are metadata-only at this stage.
 - No remote GitHub repository manager, OAuth, GitHub API integration, commits, pushes or remote conflict UI exists.
 - Do not claim roadmap items are implemented until source, tests and user-visible UI confirm them.
-- The latest CI run before the StrictMode startup fix (commit `f1d6a45`) passed unit tests and production build but failed all 10 Chromium tests during app initialization. The visible error was `Path already exists: Notes`: React StrictMode invoked the initialization effect twice, and both passes raced to create the same folder. Startup now rechecks the folder after a create conflict. The fix remains unverified until all CI jobs pass on the new commit.
+- CI run `45925386493` on commit `060a43a` passed unit tests and production build but reported 2 failed, 2 flaky and 6 passed Chromium tests. Trace review showed several browser tests began typing immediately after clicking the asynchronous Create Note action, before the new tab became active. This caused input to land in the previous document and made the editor-state result misleading. Browser tests now wait for the new tab before editing. New note and VFS file creation are also now one IndexedDB transaction to prevent orphaned records. These changes remain unverified until all CI jobs pass on the new commit.
