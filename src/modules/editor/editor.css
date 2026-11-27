@@ -9,7 +9,7 @@
 @media(max-width:700px){.minimap-toggle,.editor-minimap{display:none}}
 
 /* Split keeps the existing CodeMirror and Preview surfaces mounted together. */
-.editor-main.split-mode>.source-editor,.editor-main.split-mode>.markdown-preview{flex:1 1 0;width:50%;min-width:0;min-height:0;}
+.editor-main.split-mode>.source-editor,.editor-main.split-mode>.markdown-preview{box-sizing:border-box;flex:1 1 0;width:50%;min-width:0;min-height:0;}
 .editor-main.split-mode>.source-editor{display:flex;border-right:1px solid var(--border);}
 .editor-main.split-mode>.markdown-preview{border-left:0;}
 @media(max-width:700px){.editor-main.split-mode{flex-direction:column}.editor-main.split-mode>.source-editor,.editor-main.split-mode>.markdown-preview{flex:1 1 50%;width:100%;min-height:0;border-right:0;border-left:0}.editor-main.split-mode>.source-editor{border-bottom:1px solid var(--border)}}
