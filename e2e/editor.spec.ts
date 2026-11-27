@@ -70,7 +70,7 @@ test('stores newly created notes as files in the local VFS', async ({ page }) =>
     });
   });
   const note = vfs.notes.find(item => item.content === '');
-  expect(note?.path).toMatch(/^Notes\\/.+\\.md$/);
+  expect(note?.path).toMatch(/^Notes\/.+\.md$/);
   expect(vfs.nodes).toContainEqual(expect.objectContaining({
     path: note?.path,
     kind: 'file',
