@@ -62,6 +62,7 @@ async function seedLegacyDatabase(
 
 async function readDatabase(page: Page) {
   return page.evaluate(databaseName => new Promise<{
+    nativeVersion: number;
     drafts: Array<Record<string, unknown>>;
     notes: Array<Record<string, unknown>>;
     nodes: Array<Record<string, unknown>>;
@@ -72,13 +73,14 @@ async function readDatabase(page: Page) {
     request.onsuccess = () => {
       const db = request.result;
       const stores = ['drafts', 'notes', 'fileNodes', 'workspaces'].filter(name => db.objectStoreNames.contains(name));
-      const transaction = db.transaction(stores, 'readonly');
       const result: {
+        nativeVersion: number;
         drafts: Array<Record<string, unknown>>;
         notes: Array<Record<string, unknown>>;
         nodes: Array<Record<string, unknown>>;
         workspace?: Record<string, unknown>;
-      } = { drafts: [], notes: [], nodes: [] };
+      } = { nativeVersion: db.version, drafts: [], notes: [], nodes: [] };
+      const transaction = db.transaction(stores, 'readonly');
       if (stores.includes('drafts')) transaction.objectStore('drafts').getAll().onsuccess = event => {
         result.drafts = (event.target as IDBRequest).result;
       };
@@ -114,6 +116,7 @@ test('upgrades a version 1 database without losing existing drafts', async ({ pa
   await page.goto('/');
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
   const stored = await readDatabase(page);
+  expect(stored.nativeVersion).toBe(50);
   expect(stored.drafts).toContainEqual(expect.objectContaining({
     id: 'legacy-draft-v1',
     content: 'Draft from schema version 1',
@@ -174,7 +177,7 @@ test('upgrades version 3 while preserving the saved workspace and open tab', asy
 
   await page.goto('/');
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Workspace note');
-  await expect(page.getByText('Legacy workspace')).toBeVisible();
+  await expect(page.getByText('Legacy workspace', { exact: true })).toBeVisible();
   const stored = await readDatabase(page);
   expect(stored.workspace?.snapshot).toEqual(snapshot);
   expect(stored.nodes).toContainEqual(expect.objectContaining({
@@ -223,7 +226,9 @@ test('upgrades version 4 paths safely, resolves duplicate paths and preserves sy
   });
 
   await page.goto('/');
-  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Legacy A');
+  // The app opens the most recently updated note first; all three records are
+  // checked below, so this assertion does not depend on insertion order.
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Traversal');
   const stored = await readDatabase(page);
   const migrated = stored.notes.filter(item => String(item.id).startsWith('legacy-v4-'));
   expect(migrated).toHaveLength(3);

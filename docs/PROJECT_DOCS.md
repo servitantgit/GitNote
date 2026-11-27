@@ -54,11 +54,11 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Document domain and storage
 
-- src/core/domain/document-source.ts defines DocumentSource, document metadata/records, attachment metadata and sync-state types.
-- src/infrastructure/storage/local-document-source.ts implements local document CRUD through Dexie.
+- `src/core/domain/document-source.ts` defines DocumentSource, document metadata/records, attachment metadata and sync-state types.
+- `src/infrastructure/storage/local-document-source.ts` implements local document CRUD through Dexie.
 - Document metadata includes repository ID, optional relative path, optional baseSha, and sync state: local, clean, dirty or conflict.
-- src/core/domain/workspace-file-system.ts defines VFS contracts and path helpers.
-- src/infrastructure/storage/local-workspace-file-system.ts implements local folder/file listing, folder creation, document registration, rename, move and recursive deletion.
+- `src/core/domain/workspace-file-system.ts` defines VFS contracts and path helpers.
+- `src/infrastructure/storage/local-workspace-file-system.ts` implements local folder/file listing, folder creation, document registration, rename, move and recursive deletion.
 - File/folder nodes live in Dexie fileNodes; file nodes reference documents by stable document ID.
 - Folder/file rename and move update descendant paths and linked document metadata in one IndexedDB transaction.
 - Removing a file/folder removes linked documents from local note storage.
@@ -95,7 +95,6 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [ ] Verify per-tab cursor, selection, scroll and undo history in Chromium.
 - [ ] Add/verify visual browser regression coverage for Source and Live Preview.
 - [ ] Fix all failures in the latest CI browser-test run.
-- [x] Show local database initialization failures in the shared workspace shell, including when no active note exists.
 - [ ] Keep project documentation synchronized with actual implementation.
 
 ### Stage 1: editor core
@@ -158,4 +157,5 @@ Only after editor and local workspace foundations are ready:
 - Do not claim roadmap items are implemented until source, tests and user-visible UI confirm them.
 - CI run `45925386493` on commit `060a43a` passed unit tests and production build but reported 2 failed, 2 flaky and 6 passed Chromium tests. Trace review showed several browser tests began typing immediately after clicking the asynchronous Create Note action, before the new tab became active. Browser tests now wait for the new tab before editing. New note and VFS file creation are also one IndexedDB transaction. CI run `45925981117` on commit `a6f51de` passed all three required jobs (unit tests, Chromium browser tests and production build).
 - CI run `45926418333` on commit `ab3f8cd`: unit tests and production build passed; all four new IndexedDB migration browser tests failed before reaching the app because their fixture used `about:blank`, where Chromium denies IndexedDB access for the opaque origin. The fixture was moved to an inert same-origin document in commit `70d38e1`.
-- CI run `45929669574` on commit `70d38e1`: unit tests and production build passed; 3 migration browser tests failed because the fixture opened raw IndexedDB versions `1`–`4`, but Dexie schema versions `1.0`–`4.0` map to native IndexedDB versions `10`–`40`. The fixture therefore did not represent the historical Dexie databases and some tests were false positives. The seed helper now uses `version * 10` and verifies the native version before opening the app; this correction requires a new green CI run.
+- CI run `45929669574` on commit `70d38e1`: unit tests and production build passed; 3 migration browser tests failed because the fixture opened raw IndexedDB versions `1`–`4`, but Dexie schema versions `1.0`–`4.0` map to native IndexedDB versions `10`–`40`. The fixture therefore did not represent the historical Dexie databases and some tests were false positives. Commit `810a21b` changed the seed helper to use `version * 10` and check the native DB version.
+- CI run `45930037415` on commit `810a21b`: unit tests and production build passed; 12 browser tests passed and 2 migration tests failed. The v3 migration itself preserved the workspace; its UI assertion matched both the tab label and breadcrumb, so it now uses an exact text match. The v4 migration preserved all three records, but the test incorrectly expected the oldest note to open first; the app sorts notes by updatedAt descending, so the newest note (`Traversal`) is active. The v1 migration test now also asserts the final native IndexedDB version is 50, rather than relying only on the welcome-note UI.
