@@ -21,7 +21,7 @@
 ## Editor behavior
 
 - Source and Live Preview share one persistent CodeMirror 6 instance. Switching to Preview hides the editor without destroying its undo history or selection.
-- `src/modules/editor/navigation/scroll-position.ts` defines the logical document position (line plus fractional offset) and adapters for CodeMirror 6 and rendered Markdown Preview. Preview mapping derives heading and image anchors from the Lezer Markdown syntax tree so tall rendered blocks do not distort document position.
+- `src/modules/editor/navigation/scroll-position.ts` defines the logical document position (line plus fractional offset) and adapters for CodeMirror 6 and rendered Markdown Preview. Preview mapping derives heading and image anchors from the Lezer Markdown syntax tree so tall rendered blocks do not distort document position. CodeMirror restoration is deferred until after the new view's first layout.
 - `src/modules/editor/navigation/scroll-coordinator.ts` coordinates registered scroll surfaces around one position, reports position changes through the owning document callback, and exposes `scrollTo`/`subscribe` so a future minimap can drive and observe the same navigation state. The coordinator does not depend on a minimap being mounted.
 - The formatting toolbar supports bold, italic, strikethrough, inline code, links, headings, lists, blockquotes and horizontal rules.
 - Live Preview uses the Lezer Markdown syntax tree to identify fenced and inline code ranges before applying inline decorations, so formatting/link rules skip code. Other presentation rules are still lightweight line-level transforms.

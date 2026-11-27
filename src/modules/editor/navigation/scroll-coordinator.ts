@@ -38,43 +38,51 @@ export function createScrollCoordinator(
     }
   }
 
-  function handleSurfaceScroll(id: string) {
+  function handleSurfaceScroll(id: string): boolean {
     const entry = surfaces.get(id);
-    if (!entry || destroyed) return;
+    if (!entry || destroyed) return false;
     let next: DocumentScrollPosition;
     try {
       next = entry.surface.readPosition();
     } catch {
-      return;
+      return false;
     }
 
     const pending = pendingWrites.get(id);
     if (pending && samePosition(next, pending)) {
       pendingWrites.delete(id);
-      return;
+      return false;
     }
     pendingWrites.delete(id);
     publish(next, id);
+    return true;
   }
 
-  function register(surface: ScrollSurface): () => void {
+  function register(surface: ScrollSurface, restoreImmediately = true): () => void {
     if (destroyed) return () => undefined;
     const previous = surfaces.get(surface.id);
     previous?.unsubscribe();
     pendingWrites.delete(surface.id);
+    let hasUserScroll = false;
 
-    const unsubscribe = surface.subscribe(() => handleSurfaceScroll(surface.id));
+    const unsubscribe = surface.subscribe(() => {
+      if (handleSurfaceScroll(surface.id)) hasUserScroll = true;
+    });
     surfaces.set(surface.id, { surface, unsubscribe });
-    pendingWrites.set(surface.id, position);
-    surface.scrollToPosition(position);
+    if (restoreImmediately) {
+      pendingWrites.set(surface.id, position);
+      surface.scrollToPosition(position);
+    }
 
     return () => {
       const current = surfaces.get(surface.id);
       if (current?.surface !== surface) return;
-      try {
-        publish(surface.readPosition(), surface.id);
-      } catch {
-        // A surface may already have been detached by its host framework.
+      if (restoreImmediately || hasUserScroll) {
+        try {
+          publish(surface.readPosition(), surface.id);
+        } catch {
+          // A surface may already have been detached by its host framework.
+        }
       }
       current.unsubscribe();
       surfaces.delete(surface.id);
