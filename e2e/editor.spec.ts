@@ -1,5 +1,124 @@
 import { expect, test } from '@playwright/test';
 
+
+function createStoredZip(entries: Record<string, string>): Buffer {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let localOffset = 0;
+  const crc32 = (data: Buffer) => {
+    let crc = 0xffffffff;
+    for (const byte of data) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+
+  for (const [path, content] of Object.entries(entries)) {
+    const name = Buffer.from(path, 'utf8');
+    const data = Buffer.from(content, 'utf8');
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    local.writeUInt16LE(0, 28);
+    localParts.push(local, name, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(0, 32);
+    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(localOffset, 42);
+    centralParts.push(central, name);
+    localOffset += local.length + name.length + data.length;
+  }
+
+  const centralDirectory = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(Object.keys(entries).length, 8);
+  end.writeUInt16LE(Object.keys(entries).length, 10);
+  end.writeUInt32LE(centralDirectory.length, 12);
+  end.writeUInt32LE(localOffset, 16);
+  return Buffer.concat([...localParts, centralDirectory, end]);
+}
+
+function makeDocxFixture(): Buffer {
+  const word = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const relationships = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  return createStoredZip({
+    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>',
+    '_rels/.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + relationships + '/officeDocument" Target="word/document.xml"/></Relationships>',
+    'word/_rels/document.xml.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + relationships + '/styles" Target="styles.xml"/></Relationships>',
+    'word/styles.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="' + word + '"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr/></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>',
+    'word/document.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="' + word + '" xmlns:r="' + relationships + '"><w:body><w:p><w:r><w:t xml:space="preserve">Original Word text</w:t></w:r></w:p><w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>',
+  });
+}
+
+function makeXlsxFixture(): Buffer {
+  const main = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const officeRel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  return createStoredZip({
+    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+    '_rels/.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + rel + '/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    'xl/_rels/workbook.xml.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + officeRel + '/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/workbook.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="' + main + '" xmlns:r="' + officeRel + '"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    'xl/worksheets/sheet1.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="' + main + '"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Original Excel text</t></is></c></row></sheetData></worksheet>',
+  });
+}
+
+async function importOfficeFile(page: import('@playwright/test').Page, name: string, mimeType: string, buffer: Buffer) {
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Імпортувати документ' }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({ name, mimeType, buffer });
+}
+
+async function saveOfficeFile(page: import('@playwright/test').Page) {
+  await expect(page.locator('.save-indicator')).toHaveText('Є незбережені зміни');
+  await page.locator('.de-ebar button[aria-label^="Save"]').first().click();
+  await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
+}
+
+async function readSpreadsheetCell(page: import('@playwright/test').Page, ref: string): Promise<string> {
+  const [, column, row] = /^([A-Z]+)(\d+)$/.exec(ref)!;
+  const point = await page.evaluate(({ columnName, rowNumber }) => {
+    const findCenter = (selector: string, value: string) => {
+      const element = [...document.querySelectorAll<HTMLElement>(selector)]
+        .find(item => item.innerText.trim() === value);
+      if (!element) throw new Error('Spreadsheet header not found: ' + value);
+      const bounds = element.getBoundingClientRect();
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    };
+    const col = findCenter('.de-head-c', columnName);
+    const line = findCenter('.de-head-r', rowNumber);
+    return { x: col.x, y: line.y };
+  }, { columnName: column, rowNumber: row });
+  return page.evaluate(({ x, y }) => {
+    for (const element of document.elementsFromPoint(x, y)) {
+      const cell = element.closest<HTMLElement>('.de-cell');
+      if (cell) return cell.innerText.trim();
+    }
+    return '';
+  }, point);
+}
+
 test.beforeEach(async ({ page }) => {
   // Playwright creates a fresh browser context for each test, including a clean IndexedDB.
   await page.goto('/');
@@ -57,6 +176,87 @@ test('imports a local document, opens it and restores its Blob after reload', as
   await expect(page.getByRole('button', { name: 'Browser import.md' })).toBeVisible();
   await page.getByRole('button', { name: 'Browser import.md' }).click();
   await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+
+
+test('imports, edits, saves and restores a DOCX through IndexedDB', async ({ page }) => {
+  await importOfficeFile(
+    page,
+    'Roundtrip.docx',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    makeDocxFixture(),
+  );
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  const pages = page.locator('.de-pages');
+  await expect(pages).toContainText('Original Word text');
+
+  const selected = await page.evaluate((text) => {
+    const root = document.querySelector<HTMLElement>('.de-pages');
+    if (!root) throw new Error('DOCX page surface is missing');
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const offset = node.textContent!.indexOf(text);
+      if (offset < 0 || node.parentElement?.closest('[contenteditable=false]')) continue;
+      const range = document.createRange();
+      range.setStart(node, offset);
+      range.setEnd(node, offset + text.length);
+      root.focus();
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+    return false;
+  }, 'Original Word text');
+  expect(selected).toBe(true);
+  await page.keyboard.type('Edited Word text');
+  await expect(pages).toContainText('Edited Word text');
+  await saveOfficeFile(page);
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Roundtrip.docx' })).toBeVisible();
+  await page.getByRole('button', { name: 'Roundtrip.docx' }).click();
+  await expect(page.locator('.de-pages')).toContainText('Edited Word text');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('imports, edits, saves and restores an XLSX through IndexedDB', async ({ page }) => {
+  await importOfficeFile(
+    page,
+    'Roundtrip.xlsx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    makeXlsxFixture(),
+  );
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await expect(page.locator('.de-grid')).toBeVisible();
+  await expect.poll(() => readSpreadsheetCell(page, 'A1')).toBe('Original Excel text');
+
+  const point = await page.evaluate(() => {
+    const findCenter = (selector: string, value: string) => {
+      const element = [...document.querySelectorAll<HTMLElement>(selector)]
+        .find(item => item.innerText.trim() === value);
+      if (!element) throw new Error('Spreadsheet header not found: ' + value);
+      const bounds = element.getBoundingClientRect();
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    };
+    const col = findCenter('.de-head-c', 'A');
+    const line = findCenter('.de-head-r', '1');
+    return { x: col.x, y: line.y };
+  });
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.de-fx-ref')).toHaveText('A1');
+  await page.keyboard.type('Edited Excel text');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => readSpreadsheetCell(page, 'A1')).toBe('Edited Excel text');
+  await saveOfficeFile(page);
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Roundtrip.xlsx' })).toBeVisible();
+  await page.getByRole('button', { name: 'Roundtrip.xlsx' }).click();
+  await expect(page.locator('.de-grid')).toBeVisible();
+  await expect.poll(() => readSpreadsheetCell(page, 'A1')).toBe('Edited Excel text');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
