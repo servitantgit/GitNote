@@ -76,7 +76,17 @@ export function App() {
         ]);
         const rootNodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
         if (!rootNodes.some(node => node.kind === 'folder' && node.name === 'Notes')) {
-          await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, '', 'Notes');
+          try {
+            await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, '', 'Notes');
+          } catch (error) {
+            // React StrictMode can run this initialization effect twice. If another
+            // invocation created Notes first, treat that as successful initialization.
+            const refreshedRootNodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
+            const notesFolderExists = refreshedRootNodes.some(
+              node => node.kind === 'folder' && node.name === 'Notes',
+            );
+            if (!notesFolderExists) throw error;
+          }
         }
         let storedNotes = await Promise.all(documentMetas.map(async meta => ({
           ...meta,

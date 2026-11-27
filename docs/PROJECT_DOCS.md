@@ -37,6 +37,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Create, select, rename and delete local notes.
 - Debounced local autosave through IndexedDB/Dexie.
 - Local-only status is shown; GitHub authentication and remote repository selection are not implemented.
+- Startup safely handles the React StrictMode double invocation: if another initialization pass creates the `Notes` folder first, the second pass confirms the folder exists and continues.
 - Search, settings and attachment controls are placeholders/disabled.
 - The current UI does not yet expose a navigable folder tree, even though the VFS storage layer exists.
 
@@ -95,7 +96,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [ ] Verify per-tab cursor, selection, scroll and undo history in Chromium.
 - [ ] Add/verify visual browser regression coverage for Source and Live Preview.
 - [ ] Fix all failures in the latest CI browser-test run.
-- [ ] Add and verify visible error reporting for local database initialization failures.
+- [x] Show local database initialization failures in the shared workspace shell, including when no active note exists.
 - [ ] Keep project documentation synchronized with actual implementation.
 
 ### Stage 1: editor core
@@ -156,4 +157,4 @@ Only after editor and local workspace foundations are ready:
 - Attachments are metadata-only at this stage.
 - No remote GitHub repository manager, OAuth, GitHub API integration, commits, pushes or remote conflict UI exists.
 - Do not claim roadmap items are implemented until source, tests and user-visible UI confirm them.
-- At the last reviewed CI run, unit tests and production build passed, while Chromium browser tests failed because the app rendered an empty workspace instead of initializing the first note. Diagnose and fix this before Stage 0 is marked complete.
+- The latest CI run before the StrictMode startup fix (commit `f1d6a45`) passed unit tests and production build but failed all 10 Chromium tests during app initialization. The visible error was `Path already exists: Notes`: React StrictMode invoked the initialization effect twice, and both passes raced to create the same folder. Startup now rechecks the folder after a create conflict. The fix remains unverified until all CI jobs pass on the new commit.
