@@ -126,8 +126,9 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
     id: 'editor',
     readPosition() {
       const lineCount = view.state.doc.lines;
-      const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
-      const documentOffset = viewportTop - view.documentTop;
+      // scrollTop is already expressed in document coordinates, which is the
+      // coordinate system expected by lineBlockAtHeight().
+      const documentOffset = view.scrollDOM.scrollTop;
       const block = view.lineBlockAtHeight(documentOffset);
       const line = view.state.doc.lineAt(block.from).number - 1;
       const height = Math.max(1, block.bottom - block.top);
@@ -151,8 +152,7 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
             const currentLine = view.state.doc.line(Math.min(lineNumber, view.state.doc.lines));
             const block = view.lineBlockAt(currentLine.from);
             const height = Math.max(1, block.bottom - block.top);
-            const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
-            const currentDocumentOffset = viewportTop - view.documentTop;
+            const currentDocumentOffset = view.scrollDOM.scrollTop;
             return block.top + height * normalized.offset - currentDocumentOffset;
           },
           write: delta => { view.scrollDOM.scrollTop += delta; },
