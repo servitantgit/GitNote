@@ -33,6 +33,7 @@ export function App() {
   const saveSequence = useRef(0);
   const saveTimer = useRef<number | null>(null);
   const dirtyNoteIds = useRef(new Set<string>());
+  const dirtyTitleNoteIds = useRef(new Set<string>());
   const activeNoteIdRef = useRef<string | null>(null);
 
   const activeTab = useMemo(
@@ -111,19 +112,29 @@ export function App() {
 
   useEffect(() => {
     if (saveState === 'loading') return;
-    const pendingNotes = notes.filter(note => dirtyNoteIds.current.has(note.id));
+    const pendingNotes = notes.filter(note => dirtyNoteIds.current.has(note.id) || dirtyTitleNoteIds.current.has(note.id));
     if (pendingNotes.length === 0) return;
 
     const sequence = ++saveSequence.current;
     setSaveState('saving');
     const timer = window.setTimeout(() => {
       saveTimer.current = null;
-      void Promise.all(pendingNotes.map(note => documentSource.write(note.id, note.content, note.baseSha)))
+      void Promise.all(pendingNotes.map(async note => {
+        if (dirtyNoteIds.current.has(note.id)) {
+          await documentSource.write(note.id, note.content, note.baseSha);
+        }
+        if (dirtyTitleNoteIds.current.has(note.id)) {
+          await documentSource.rename(note.id, note.title);
+        }
+      }))
         .then(() => {
           if (saveSequence.current !== sequence) return;
           for (const savedNote of pendingNotes) {
             const currentNote = notes.find(note => note.id === savedNote.id);
-            if (currentNote?.updatedAt === savedNote.updatedAt) dirtyNoteIds.current.delete(savedNote.id);
+            if (currentNote?.updatedAt === savedNote.updatedAt) {
+              dirtyNoteIds.current.delete(savedNote.id);
+              dirtyTitleNoteIds.current.delete(savedNote.id);
+            }
           }
           setStorageError(null);
           setSaveState(dirtyNoteIds.current.size === 0 ? 'saved' : 'saving');
@@ -145,14 +156,10 @@ export function App() {
   const updateActiveNote = useCallback((updates: Partial<Pick<LocalNote, 'title' | 'content'>>) => {
     if (!activeNote) return;
     if (updates.content !== undefined) dirtyNoteIds.current.add(activeNote.id);
+    if (updates.title !== undefined) dirtyTitleNoteIds.current.add(activeNote.id);
     setNotes(current => current.map(note => note.id === activeNote.id
       ? { ...note, ...updates, updatedAt: Date.now() }
       : note));
-    if (updates.title !== undefined) {
-      void documentSource.rename(activeNote.id, updates.title).catch(error => {
-        setStorageError(error instanceof Error ? error.message : 'Не вдалося перейменувати нотатку.');
-      });
-    }
     if (updates.title !== undefined && managerRef.current) {
       const manager = managerRef.current;
       const tabId = `note:${activeNote.id}`;
@@ -197,6 +204,7 @@ export function App() {
       saveSequence.current += 1;
       await documentSource.remove(activeNote.id);
       dirtyNoteIds.current.delete(activeNote.id);
+      dirtyTitleNoteIds.current.delete(activeNote.id);
       const manager = managerRef.current;
       manager?.closeTab(`note:${activeNote.id}`);
       const remaining = notes.filter(note => note.id !== activeNote.id);
