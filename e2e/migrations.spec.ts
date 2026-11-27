@@ -181,7 +181,7 @@ test('upgrades version 3 while preserving the saved workspace and open tab', asy
   const stored = await readDatabase(page);
   expect(stored.workspace?.snapshot).toEqual(snapshot);
   expect(stored.nodes).toContainEqual(expect.objectContaining({
-    path: 'Notes/workspace-note-legacy-note-v3.md',
+    path: 'Notes/workspace-note-legacy-n.md',
     documentId: noteId,
     kind: 'file',
   }));
