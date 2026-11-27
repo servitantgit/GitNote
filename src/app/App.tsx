@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { EditorState } from '@codemirror/state';
 import { Files, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
@@ -38,6 +39,7 @@ export function App() {
   const dirtyNoteIds = useRef(new Set<string>());
   const dirtyTitleNoteIds = useRef(new Set<string>());
   const activeNoteIdRef = useRef<string | null>(null);
+  const editorStatesRef = useRef(new Map<string, EditorState>());
 
   const activeTab = useMemo(
     () => workspace?.tabs.find(tab => tab.id === workspace.activeTabId) ?? null,
@@ -309,7 +311,7 @@ export function App() {
               </div>
             </div>
             {storageError && <div className="storage-error" role="alert">{storageError}</div>}
-            <EditorWorkspace key={activeNote.id} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
+            <EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
           </> : <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
         </section>
       </div>

@@ -65,23 +65,33 @@ test('deletes a note after confirmation', async ({ page }) => {
   await expect(page.getByRole('list', { name: 'Список нотаток' })).not.toContainText('Note to delete');
 });
 
-test('switching notes resets CodeMirror undo history', async ({ page }) => {
-  const editor = page.locator('.cm-content');
-  await editor.fill('Content belonging to note A');
+test('restores each note editor state and undo history after switching tabs', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
-  await editor.fill('Content belonging to note B');
+  const editor = page.locator('.cm-content');
 
-  await page.getByRole('list', { name: 'Список нотаток' })
-    .getByRole('button', { name: 'Моя перша нотатка', exact: true }).click();
-  await page.getByRole('tab', { name: 'Без назви', exact: true }).click();
+  await editor.fill('Note A');
+  await editor.press('End');
+  await editor.pressSequentially(' edited');
+  await editor.press('Home');
+  await editor.press('ArrowRight');
+
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await editor.fill('Note B');
+
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).first().click();
+  await expect(editor).toContainText('Note A edited');
+
+  // The caret was between the first and second characters when this tab was left.
+  await editor.pressSequentially('X');
+  await expect(editor).toContainText('NXote A edited');
+
+  // Undo must operate on note A's own history, never note B's.
   await editor.press('Control+z');
+  await expect(editor).toContainText('Note A edited');
+  await expect(editor).not.toContainText('Note B');
 
-  await expect(editor).toContainText('Content belonging to note B');
-  await expect(editor).not.toContainText('Content belonging to note A');
-
-  await page.getByRole('tab', { name: 'Моя перша нотатка', exact: true }).click();
-  await expect(editor).toContainText('Content belonging to note A');
-  await expect(editor).not.toContainText('Content belonging to note B');
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).last().click();
+  await expect(editor).toContainText('Note B');
 });
 
 test('Ctrl+I applies italic formatting to the selected text', async ({ page }) => {

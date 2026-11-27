@@ -5,6 +5,7 @@ import { redo, undo } from '@codemirror/commands';
 import { Prec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
+import type { EditorState } from '@codemirror/state';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import {
@@ -17,6 +18,8 @@ import { livePreviewExtension } from './live-preview';
 import './editor.css';
 
 interface Props {
+  documentId: string;
+  editorStates: Map<string, EditorState>;
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
   content: string;
@@ -46,7 +49,7 @@ const modes: { id: EditorMode; label: string }[] = [
   { id: 'preview', label: 'Preview' },
 ];
 
-export function EditorWorkspace({ mode, onModeChange, content, onContentChange }: Props) {
+export function EditorWorkspace({ documentId, editorStates, mode, onModeChange, content, onContentChange }: Props) {
   const editorRef = useRef<EditorView | null>(null);
   const extensions = useMemo(() => mode === 'live-preview' ? [markdown(), livePreviewExtension, markdownKeymap] : [markdown(), markdownKeymap], [mode]);
   const rendered = useMemo(() => mode === 'preview'
@@ -124,12 +127,19 @@ export function EditorWorkspace({ mode, onModeChange, content, onContentChange }
 
       <div className={'source-editor' + (mode === 'preview' ? ' source-editor-hidden' : '')}>
         <CodeMirror
+          key={documentId}
           value={content}
           height="100%"
           extensions={extensions}
           editable
           onChange={onContentChange}
-          onCreateEditor={view => { editorRef.current = view; }}
+          onUpdate={update => { editorStates.set(documentId, update.state); }}
+          onCreateEditor={view => {
+            editorRef.current = view;
+            const savedState = editorStates.get(documentId);
+            if (savedState) view.setState(savedState);
+            editorStates.set(documentId, view.state);
+          }}
           basicSetup={{
             lineNumbers: true,
             foldGutter: true,
