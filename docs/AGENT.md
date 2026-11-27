@@ -81,3 +81,83 @@ These instructions are mandatory for every task in this repository.
 - Keep authorization scopes minimal and remote operations bound to the exact repository and branch.
 - Do not force-push or overwrite a changed remote branch. Detect stale base SHAs and surface conflicts.
 - Avoid irreversible local data changes without an explicit user action and a tested migration path.
+
+## 8. Controlled task execution protocol
+
+Apply this protocol to every implementation task. The goal is to make changes predictable, reviewable and reversible without preventing the agent from identifying defects in the task specification.
+
+### 8.1 Preflight analysis
+
+Before editing:
+
+1. Read this file and `docs/PROJECT_DOCS.md` completely, then inspect the relevant implementation, tests, and recent history.
+2. Confirm the current branch and HEAD. Do not base changes on stale summaries or an earlier checkout.
+3. Classify the task as small, medium, complex or architectural. Identify high-risk areas, cross-module dependencies and likely regression surfaces.
+4. Prepare an explicit scope:
+   - files to modify and the intended change in each;
+   - files and behavior that must remain untouched;
+   - expected structural impact and relevant existing behavior to preserve.
+5. Trace the affected behavior through its callers, data flow and tests. Identify edge cases and failure modes before choosing an implementation.
+6. Define verification before coding: tests to add or update, existing tests to run, browser scenarios, build checks and any manual visual inspection required.
+
+Do not start implementation while a material product or architecture decision remains ambiguous. Ask one focused question when the missing decision cannot be resolved from approved project requirements.
+
+### 8.2 Change boundaries
+
+- Preserve the existing file structure and unrelated code.
+- Make the smallest coherent change that solves the requested problem.
+- Do not rewrite whole files when a localized edit is sufficient.
+- Do not reformat untouched code, reorder unrelated imports, remove comments, rename public symbols, add dependencies or perform neighboring refactors unless explicitly required and approved.
+- Do not create files outside the agreed scope. If investigation proves an additional file is necessary, explain why and obtain approval before expanding scope.
+- For high-risk files or broad changes, split implementation into reviewable atomic steps. These steps do not require separate commits.
+- Inspect the diff after each meaningful step. Stop if unexpected deletions, unrelated changes or a substantial unexplained reduction in file content appears.
+
+### 8.3 Specification deviation protocol
+
+The agent is expected to identify mistakes in requirements and assumptions, not blindly implement known defects.
+
+If the actual code, existing behavior or repository contract conflicts with the task description:
+
+1. Stop before applying the conflicting change.
+2. State what the task says and what the repository actually contains.
+3. Explain the impact and why a deviation may be necessary.
+4. Propose the smallest correction.
+5. Wait for user approval before changing the agreed scope or product behavior.
+
+Correcting an obvious locator typo is not permission to redesign adjacent code. Never silently reinterpret requirements, change expected behavior or weaken a test to make implementation pass.
+
+### 8.4 Verification discipline
+
+- Tests are part of the implementation, not optional cleanup. Add a regression test for each fixed defect when practical.
+- A regression test must exercise the actual defect and should fail against the pre-fix behavior for the intended reason.
+- Never change an assertion merely because the implementation disagrees. First establish the expected behavior from approved requirements, existing contracts and independent evidence. If the test is wrong, explain why and correct only that test.
+- Do not remove, skip, loosen or make tests flaky to obtain a green result.
+- Run the narrowest relevant tests during development, then the complete required suite: `npm test`, `npm run test:e2e` and `npm run build`, when the environment supports them.
+- Check adjacent workflows and regression surfaces, not only the exact line changed.
+- For UI changes, inspect the actual browser state. For visual defects, use screenshots or pixel-level comparison where possible; a passing DOM assertion alone does not prove visual correctness.
+- If local execution is unavailable, state that explicitly. Use CI evidence and inspect failure logs, screenshots and traces. Never claim a check passed unless its result was observed.
+- A CI result counts only when every required job has completed successfully for the exact latest commit being reported.
+
+### 8.5 Diff review and commit policy
+
+Before committing:
+
+- Review the complete diff, not just the intended hunk.
+- Confirm only scoped files changed and no generated files, secrets, unrelated formatting or accidental dependency changes are included.
+- Confirm documentation accurately describes the resulting implementation and test status.
+- Confirm all required local checks passed, or clearly record which checks could not be run.
+- Prepare one logical commit for the completed task. Do not create intermediate commits and then a chain of avoidable corrective commits.
+- If verification fails, diagnose the first failure and its root cause before editing again. Do not make speculative patches or repeatedly change assertions.
+- After pushing, verify the branch head and all required CI jobs for that exact commit before reporting completion.
+
+### 8.6 Failure and rollback
+
+If a step fails or produces an unexpected result:
+
+1. Stop further edits.
+2. Record the failing step, exact error, affected files and expected versus actual behavior.
+3. Determine whether the cause is the implementation, the test, the environment or an incorrect assumption.
+4. Preserve the last known-good state. Revert only the task's changes when rollback is needed.
+5. Report the diagnosis and proposed next action before attempting a materially different fix.
+
+Do not conceal partial completion. Report what changed, what was verified, what failed or remains unverified, the commit SHA (if committed), and the specific rollback point.
