@@ -119,6 +119,26 @@ describe('createScrollCoordinator', () => {
     coordinator.destroy();
   });
 
+  it('does not overwrite the last captured position with a detached surface reset', () => {
+    const coordinator = createScrollCoordinator();
+    const source = makeSurface('source');
+    let connected = true;
+    const surface: ScrollSurface = {
+      ...source.surface,
+      isConnected: () => connected,
+    };
+    const detach = coordinator.register(surface);
+
+    source.userScroll({ line: 44, offset: 0.5 });
+    connected = false;
+    source.setWithoutEvent({ line: 0, offset: 0 });
+
+    detach();
+
+    expect(coordinator.getPosition()).toEqual({ line: 44, offset: 0.5 });
+    coordinator.destroy();
+  });
+
   it('unregisters surfaces and clears subscriptions on destroy', () => {
     const coordinator = createScrollCoordinator();
     const source = makeSurface('source');

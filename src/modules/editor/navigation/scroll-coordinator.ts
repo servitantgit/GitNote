@@ -72,7 +72,10 @@ export function createScrollCoordinator(
       const current = surfaces.get(surface.id);
       if (current?.surface !== surface) return;
       try {
-        publish(surface.readPosition(), surface.id);
+        // A host may already have detached the DOM node before this cleanup runs.
+        // Its scrollTop can then be reset to zero; preserve the last position
+        // captured by scroll events instead of publishing that stale DOM value.
+        if (surface.isConnected?.() !== false) publish(surface.readPosition(), surface.id);
       } catch {
         // A surface may already have been detached by its host framework.
       }

@@ -13,6 +13,8 @@ export interface ScrollSurface {
   readPosition(): DocumentScrollPosition;
   scrollToPosition(position: DocumentScrollPosition): void;
   subscribe(listener: () => void): () => void;
+  /** False after the host has detached this surface from the document. */
+  isConnected?(): boolean;
 }
 
 export function normalizeScrollPosition(
@@ -124,6 +126,7 @@ function previewPairs(
 export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
   return {
     id: 'editor',
+    isConnected: () => view.dom.isConnected,
     readPosition() {
       const lineCount = view.state.doc.lines;
       // scrollTop is already expressed in document coordinates, which is the
@@ -174,6 +177,7 @@ export function createPreviewScrollSurface(
   const sourceAnchors = markdownAnchorLines(content);
   return {
     id: 'preview',
+    isConnected: () => element.isConnected,
     readPosition() {
       const pairs = previewPairs(element, lineCount, sourceAnchors);
       const documentPosition = mapValue(element.scrollTop, pairs, 'preview', 'document');
