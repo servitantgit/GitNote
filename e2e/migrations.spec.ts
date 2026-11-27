@@ -116,7 +116,7 @@ test('upgrades a version 1 database without losing existing drafts', async ({ pa
   await page.goto('/');
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
   const stored = await readDatabase(page);
-  expect(stored.nativeVersion).toBe(50);
+  expect(stored.nativeVersion).toBe(60);
   expect(stored.drafts).toContainEqual(expect.objectContaining({
     id: 'legacy-draft-v1',
     content: 'Draft from schema version 1',
