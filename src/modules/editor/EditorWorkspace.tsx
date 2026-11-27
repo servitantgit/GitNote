@@ -56,6 +56,7 @@ const modes: { id: EditorMode; label: string }[] = [
   { id: 'source', label: 'Source' },
   { id: 'live-preview', label: 'Live Preview' },
   { id: 'preview', label: 'Preview' },
+  { id: 'split', label: 'Split' },
 ];
 
 export function EditorWorkspace({
@@ -101,14 +102,14 @@ export function EditorWorkspace({
   const extensions = useMemo(() => mode === 'live-preview'
     ? [markdown(), livePreviewExtension, markdownKeymap]
     : [markdown(), markdownKeymap], [mode]);
-  const rendered = useMemo(() => mode === 'preview'
+  const rendered = useMemo(() => mode === 'preview' || mode === 'split'
     ? DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string)
     : '', [content, mode]);
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;
 
   useLayoutEffect(() => {
-    if (mode === 'preview') {
+    if (mode === 'preview' || mode === 'split') {
       const element = previewRef.current;
       const current = previewAttachmentRef.current;
       if (element && (current?.coordinator !== coordinator || current.element !== element)) {
@@ -119,7 +120,8 @@ export function EditorWorkspace({
           detach: coordinator.register(createPreviewScrollSurface(element, content)),
         };
       }
-    } else if (editorRef.current?.dom.isConnected) {
+    }
+    if (mode !== 'preview' && editorRef.current?.dom.isConnected) {
       attachSource(editorRef.current);
     }
 
@@ -180,7 +182,7 @@ export function EditorWorkspace({
         <div className="mode-switch" role="tablist" aria-label="Режим документа">
           {modes.map(item => (
             <button key={item.id} type="button" role="tab" aria-selected={mode === item.id}
-              className={mode === item.id ? 'active' : ''} onClick={() => onModeChange(item.id)}>
+              className={mode === item.id ? 'active' : ''} data-mode={item.id} onClick={() => onModeChange(item.id)}>
               {item.label}
             </button>
           ))}
@@ -220,7 +222,7 @@ export function EditorWorkspace({
         </div>
       )}
 
-      <div className="editor-main">
+      <div className={'editor-main' + (mode === 'split' ? ' split-mode' : '')}>
       <div className={'source-editor' + (mode === 'preview' ? ' source-editor-hidden' : '')}>
         <CodeMirror
           key={documentId}
@@ -257,7 +259,7 @@ export function EditorWorkspace({
         key={documentId}
         ref={previewRef}
         className="markdown-preview"
-        hidden={mode !== 'preview'}
+        hidden={mode !== 'preview' && mode !== 'split'}
         dangerouslySetInnerHTML={{ __html: rendered }}
       />
       {minimapOpen && (
@@ -271,7 +273,7 @@ export function EditorWorkspace({
       )}
       </div>
       <div className="editor-status">
-        <span>{mode === 'preview' ? 'Режим читання' : mode === 'live-preview' ? 'Редагування з форматуванням' : 'Вихідний Markdown'}</span>
+        <span>{mode === 'preview' ? 'Режим читання' : mode === 'live-preview' ? 'Редагування з форматуванням' : mode === 'split' ? 'Редагування та попередній перегляд' : 'Вихідний Markdown'}</span>
         <span>{wordCount} слів · {lineCount} рядків · {content.length} символів</span>
       </div>
     </div>
