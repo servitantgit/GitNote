@@ -266,6 +266,7 @@ export function App() {
           <button className="icon-button" aria-label="Налаштування" title="Налаштування (ще не реалізовано)" disabled><Settings size={18} /></button>
         </div>
       </header>
+      {storageError && <div className="storage-error" role="alert">{storageError}</div>}
       <div className="workspace">
         {sidebarOpen && <aside className="sidebar">
           <div className="sidebar-heading"><span>НОТАТКИ</span><button className="icon-button" aria-label="Створити нотатку" title="Створити нотатку" onClick={createNote} disabled={saveState === 'loading'}><Plus size={17} /></button></div>
@@ -310,7 +311,6 @@ export function App() {
                 <button className="attachment-button" disabled title="Вкладення будуть додані окремим модулем"><Paperclip size={16} />Вкладені файли</button>
               </div>
             </div>
-            {storageError && <div className="storage-error" role="alert">{storageError}</div>}
             <EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
           </> : <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
         </section>

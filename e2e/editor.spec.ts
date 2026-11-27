@@ -3,6 +3,12 @@ import { expect, test } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   // Playwright creates a fresh browser context for each test, including a clean IndexedDB.
   await page.goto('/');
+  await expect.poll(async () => {
+    const alert = page.getByRole('alert');
+    if (await alert.count()) return `error: ${await alert.innerText()}`;
+    if (await page.getByLabel('Назва нотатки').count()) return 'ready';
+    return 'loading';
+  }, { message: 'The local workspace should initialize before editor tests run' }).toBe('ready');
 });
 
 test('opens the workspace and initializes the local note', async ({ page }) => {
