@@ -20,12 +20,18 @@ export function normalizeScrollPosition(
   lineCount: number,
 ): DocumentScrollPosition {
   const count = Math.max(1, Math.floor(lineCount));
+  const lastLine = count - 1;
   const line = Number.isFinite(position.line) ? Math.floor(position.line) : 0;
   const offset = Number.isFinite(position.offset) ? Math.min(1, Math.max(0, position.offset)) : 0;
-  const coordinate = Math.min(count, Math.max(0, line + offset));
-  if (coordinate >= count) return { line: count - 1, offset: 1 };
-  const normalizedLine = Math.floor(coordinate);
-  return { line: normalizedLine, offset: coordinate - normalizedLine };
+
+  if (line < 0) return { line: 0, offset: 0 };
+  if (line >= count) return { line: lastLine, offset: 1 };
+  if (offset >= 1) {
+    return line >= lastLine
+      ? { line: lastLine, offset: 1 }
+      : { line: line + 1, offset: 0 };
+  }
+  return { line, offset };
 }
 
 function mapValue(
