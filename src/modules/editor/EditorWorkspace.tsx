@@ -26,7 +26,6 @@ import './editor.css';
 interface Props {
   documentId: string;
   editorStates: Map<string, EditorState>;
-  editorScrollSnapshots: Map<string, ReturnType<EditorView['scrollSnapshot']>>;
   scrollPosition?: DocumentScrollPosition;
   onScrollPositionChange: (documentId: string, position: DocumentScrollPosition) => void;
   mode: EditorMode;
@@ -61,7 +60,6 @@ const modes: { id: EditorMode; label: string }[] = [
 export function EditorWorkspace({
   documentId,
   editorStates,
-  editorScrollSnapshots,
   scrollPosition,
   onScrollPositionChange,
   mode,
@@ -92,15 +90,7 @@ export function EditorWorkspace({
       coordinator,
       view,
       detach: (() => {
-        const saveSnapshot = () => editorScrollSnapshots.set(documentId, view.scrollSnapshot());
-        view.scrollDOM.addEventListener('scroll', saveSnapshot, { passive: true });
-        const unregister = coordinator.register(createCodeMirrorScrollSurface(view));
-        saveSnapshot();
-        return () => {
-          saveSnapshot();
-          view.scrollDOM.removeEventListener('scroll', saveSnapshot);
-          unregister();
-        };
+        return coordinator.register(createCodeMirrorScrollSurface(view));
       })(),
     };
   };
@@ -144,7 +134,9 @@ export function EditorWorkspace({
     };
   }, [coordinator, mode, mode === 'preview' ? content : null]);
 
-  useLayoutEffect(() => () => coordinator.destroy(), [coordinator]);
+  // Surface listeners are detached by the effect above. Do not terminally destroy
+  // this memoized coordinator here: React StrictMode replays effect cleanup/setup
+  // with the same instance, which would otherwise leave it permanently disabled.
 
   const applyEdit = (edit: (text: string, from: number, to: number) => { text: string; selection: { from: number; to: number } }) => {
     const view = editorRef.current;
@@ -223,16 +215,13 @@ export function EditorWorkspace({
           onChange={onContentChange}
           onUpdate={update => {
             editorStates.set(documentId, update.state);
-            editorScrollSnapshots.set(documentId, update.view.scrollSnapshot());
           }}
           onCreateEditor={view => {
             editorRef.current = view;
-            const savedScrollSnapshot = editorScrollSnapshots.get(documentId);
             const savedState = editorStates.get(documentId);
             if (savedState) view.setState(savedState);
             editorStates.set(documentId, view.state);
             attachSource(view);
-            if (savedScrollSnapshot) view.dispatch({ effects: savedScrollSnapshot });
           }}
           basicSetup={{
             lineNumbers: true,
