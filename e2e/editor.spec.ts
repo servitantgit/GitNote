@@ -169,6 +169,40 @@ test('restores one logical scroll position per note across Source and Preview', 
     };
   });
 
+
+  const readPreviewLogicalPosition = () => preview.evaluate(element => {
+    const lineCount = 159;
+    const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
+    const bounds = element.getBoundingClientRect();
+    const pairs = [{ document: 0, preview: 0 }];
+    Array.from(element.querySelectorAll<HTMLElement>('p')).forEach((paragraph, index) => {
+      const rect = paragraph.getBoundingClientRect();
+      pairs.push(
+        { document: index * 2, preview: element.scrollTop + rect.top - bounds.top },
+        { document: index * 2 + 1, preview: element.scrollTop + rect.bottom - bounds.top },
+      );
+    });
+    pairs.push({ document: lineCount, preview: maxScroll });
+    const valid = pairs.filter(pair => pair.document > 0 && pair.document < lineCount && pair.preview > 0 && pair.preview < maxScroll)
+      .sort((a, b) => a.document - b.document || a.preview - b.preview);
+    const anchors = [{ document: 0, preview: 0 }];
+    for (const pair of valid) {
+      const previous = anchors[anchors.length - 1];
+      if (pair.document > previous.document && pair.preview > previous.preview) anchors.push(pair);
+    }
+    anchors.push({ document: lineCount, preview: maxScroll });
+    const value = element.scrollTop;
+    for (let index = 0; index < anchors.length - 1; index += 1) {
+      const start = anchors[index], end = anchors[index + 1];
+      if (value <= end.preview) {
+        const fraction = (value - start.preview) / Math.max(1, end.preview - start.preview);
+        const logical = start.document + fraction * (end.document - start.document);
+        return { line: Math.floor(logical), offset: logical - Math.floor(logical), scrollTop: element.scrollTop };
+      }
+    }
+    return { line: lineCount - 1, offset: 1, scrollTop: element.scrollTop };
+  });
+
   await source.evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; element.dispatchEvent(new Event('scroll')); });
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
@@ -201,7 +235,18 @@ test('restores one logical scroll position per note across Source and Preview', 
     return Math.abs(after - before) < 0.5;
   }).toBe(true);
   const liveLogicalPosition = await readVisibleLogicalPosition();
+  console.log('SCROLL_DIAGNOSTIC before-mode-switch', {
+    source: liveLogicalPosition,
+    preview: await readPreviewLogicalPosition(),
+    sourceScrollTop: await source.evaluate(element => element.scrollTop),
+    previewScrollTop: await preview.evaluate(element => element.scrollTop),
+  });
   await page.getByRole('tab', { name: 'Source' }).click();
+  console.log('SCROLL_DIAGNOSTIC after-mode-switch', {
+    source: await readVisibleLogicalPosition(),
+    previewScrollTop: await preview.evaluate(element => element.scrollTop),
+    sourceScrollTop: await source.evaluate(element => element.scrollTop),
+  });
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
     return Boolean(next && liveLogicalPosition
