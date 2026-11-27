@@ -182,7 +182,13 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
         },
         write: documentOffset => {
           view.scrollDOM.scrollTop = documentOffset;
-          measurePending = false;
+          // Scroll events caused by this write are delivered after the current
+          // animation-frame measurement. Keep suppressing them through the
+          // next frame so a delayed reflow/restore event cannot overwrite the
+          // coordinator's logical position.
+          requestAnimationFrame(() => {
+            measurePending = false;
+          });
         },
       });
     },
