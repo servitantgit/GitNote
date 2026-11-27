@@ -29,6 +29,16 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - No automatic commit, push or sync.
 - Note attachments are note-scoped, not stored in one shared global assets folder.
 
+
+## Architecture maintenance principles
+
+- Design changes with maintainability and safe future evolution in mind, not only immediate behavior.
+- Keep one cohesive responsibility per module, with clear interfaces and dependency direction. Avoid circular dependencies and hidden coupling.
+- Split files when they begin accumulating independent responsibilities; keep central application/editor components focused rather than using them as general-purpose containers.
+- Avoid both oversized monoliths and excessive fragmentation into trivial helper files. Module boundaries should reflect meaningful responsibilities.
+- Evaluate dependency upgrades for breaking changes and downstream effects before adopting them; verify affected behavior with targeted regression tests.
+- Proactively identify and explain technical risks and preventive improvements. Recommendations do not authorize unapproved scope expansion or broad refactoring.
+
 ## Current implementation
 
 ### Application shell and notes

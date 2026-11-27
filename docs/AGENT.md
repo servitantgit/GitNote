@@ -50,6 +50,23 @@ These instructions are mandatory for every task in this repository.
 - Lazy-load heavy format viewers/adapters where practical.
 - Hide only GitNotes-owned marker files in a future file tree; do not hide arbitrary user dotfiles.
 
+
+### 4.1 Preventive architecture and maintainability
+
+Architecture quality is a continuous responsibility, not cleanup deferred until a defect or large refactor makes it unavoidable.
+
+- Before proposing an implementation, assess the affected architecture: module responsibilities, dependency direction, coupling, data flow, public interfaces, lifecycle ownership, and likely regression surfaces.
+- Proactively identify design choices that could create avoidable technical debt, fragile upgrade paths, duplicated logic, hidden side effects, or expensive future migrations. Explain material risks and recommend preventive measures before implementation.
+- Organize code by cohesive responsibility. Keep related types, logic and tests together behind clear module boundaries; avoid circular dependencies and unclear ownership.
+- Keep files reasonably small and navigable. Split a growing module when it starts to contain multiple independent responsibilities. Do not let central components become dumping grounds for unrelated state or workflows.
+- Avoid both extremes: monolithic files and excessive fragmentation into one-file-per-trivial-helper. A module should represent a meaningful responsibility with a clear interface.
+- Prefer stable, explicit contracts between layers. Keep domain logic independent of infrastructure details and isolate external libraries, browser APIs and remote services behind appropriate adapters.
+- Before dependency or framework upgrades, check release notes, breaking changes, supported versions, API changes and the impact on direct and transitive dependants. Plan compatibility tests for affected behavior; do not upgrade blindly.
+- Add or preserve tests at module boundaries and for important end-to-end workflows so that future changes reveal regressions close to their source.
+- Record material architectural decisions, constraints and migration implications in the appropriate documentation. Keep documentation aligned with the actual code, not aspirations.
+- The agent must proactively propose worthwhile structural or preventive improvements when evidence from the current code supports them. Separate recommendations from the requested implementation scope; do not silently perform broad refactors or add abstractions without approval.
+- Do not optimize for hypothetical future requirements at the expense of current clarity. Choose the simplest design that safely supports approved product direction and known extension points.
+
 ## 5. Testing and verification
 
 - Unit tests cover pure functions, path rules, domain state transitions, parsers and error cases.
