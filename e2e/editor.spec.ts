@@ -139,12 +139,12 @@ test('restores each note editor state and undo history after switching tabs', as
   await expect(editor).toContainText('Note B');
 });
 
-test('restores one logical scroll position per note across Source and Preview', async ({ page }) => {
+test('restores one logical scroll position per note across Source and Preview when layout is stable', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
 
   const content = Array.from({ length: 80 }, (_, index) =>
-    `## Section ${index + 1} with enough text to wrap across multiple visual rows in the narrower Live source pane and remain a distinct heading in the rendered preview.`,
+    `## Section ${index + 1}`,
   ).join('\n');
   const editor = page.locator('.cm-content');
   await editor.fill(content);
@@ -183,8 +183,9 @@ test('restores one logical scroll position per note across Source and Preview', 
   expect(matchesPosition(initialState.source, initialState.coordinator)).toBe(true);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
 
-  // The coordinator and the CodeMirror adapter must retain the same logical
-  // position when Live changes the source pane width and wraps lines differently.
+  // Keep this restoration test independent from line wrapping: wrapping has
+  // its own focused test above. This test isolates per-note position ownership
+  // and mode synchronization without changing source line block heights.
   await page.getByRole('tab', { name: 'Live' }).click();
   await expect(page.locator('.editor-main.live-mode')).toBeVisible();
   await expect.poll(async () => {

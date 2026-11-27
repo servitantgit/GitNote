@@ -14,7 +14,6 @@ All notable changes to GitNotes are documented here.
 ### Fixed
 - Preview scroll mapping now uses rendered paragraph boundaries as well as heading and image anchors, preventing drift in long heading-free Markdown documents.
 - CodeMirror scroll restoration now applies each synchronized position in one measured write, avoiding an intermediate scroll event that could cancel small Preview wheel movements.
-- CodeMirror ignores intermediate reflow scroll events while a measured restoration is pending and through the following animation frame, preserving the coordinator's logical position when switching between wrapped Source and Live layouts.
 
 ### Changed
 - Kept the existing scroll echo tolerance and added Chromium regression coverage for fractional wheel movement in Live mode.

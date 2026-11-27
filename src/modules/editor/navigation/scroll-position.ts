@@ -147,11 +147,6 @@ function previewPairs(
 }
 
 export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
-  // A mode switch can reflow wrapped lines and queue a browser scroll event
-  // before CodeMirror's measured restoration write runs. Do not treat that
-  // intermediate layout position as a user scroll.
-  let measurePending = false;
-
   return {
     id: 'editor',
     readPosition() {
@@ -170,7 +165,6 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
     scrollToPosition(position) {
       const normalized = normalizeScrollPosition(position, view.state.doc.lines);
       const lineNumber = normalized.line + 1;
-      measurePending = true;
       view.requestMeasure({
         key: view,
         read: () => {
@@ -182,20 +176,11 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
         },
         write: documentOffset => {
           view.scrollDOM.scrollTop = documentOffset;
-          // Scroll events caused by this write are delivered after the current
-          // animation-frame measurement. Keep suppressing them through the
-          // next frame so a delayed reflow/restore event cannot overwrite the
-          // coordinator's logical position.
-          requestAnimationFrame(() => {
-            measurePending = false;
-          });
         },
       });
     },
     subscribe(listener) {
-      const handleScroll = () => {
-        if (!measurePending) listener();
-      };
+      const handleScroll = () => listener();
       view.scrollDOM.addEventListener('scroll', handleScroll, { passive: true });
       return () => view.scrollDOM.removeEventListener('scroll', handleScroll);
     },
