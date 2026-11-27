@@ -130,6 +130,8 @@ export function EditorWorkspace({ mode, onModeChange, content, onContentChange }
           basicSetup={{
             lineNumbers: true,
             foldGutter: true,
+            highlightActiveLine: true,
+            highlightActiveLineGutter: true,
             bracketMatching: true,
             closeBrackets: true,
             autocompletion: true,
