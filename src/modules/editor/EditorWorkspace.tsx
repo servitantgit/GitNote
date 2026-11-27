@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { redo, undo } from '@codemirror/commands';
@@ -15,11 +15,19 @@ import {
 import type { EditorMode } from './types';
 import { prefixLines, toggleHeading, wrapSelection } from './markdown-commands';
 import { livePreviewExtension } from './live-preview';
+import { createScrollCoordinator } from './navigation/scroll-coordinator';
+import {
+  createCodeMirrorScrollSurface,
+  createPreviewScrollSurface,
+  type DocumentScrollPosition,
+} from './navigation/scroll-position';
 import './editor.css';
 
 interface Props {
   documentId: string;
   editorStates: Map<string, EditorState>;
+  scrollPosition?: DocumentScrollPosition;
+  onScrollPositionChange: (documentId: string, position: DocumentScrollPosition) => void;
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
   content: string;
@@ -49,14 +57,64 @@ const modes: { id: EditorMode; label: string }[] = [
   { id: 'preview', label: 'Preview' },
 ];
 
-export function EditorWorkspace({ documentId, editorStates, mode, onModeChange, content, onContentChange }: Props) {
+export function EditorWorkspace({
+  documentId,
+  editorStates,
+  scrollPosition,
+  onScrollPositionChange,
+  mode,
+  onModeChange,
+  content,
+  onContentChange,
+}: Props) {
   const editorRef = useRef<EditorView | null>(null);
-  const extensions = useMemo(() => mode === 'live-preview' ? [markdown(), livePreviewExtension, markdownKeymap] : [markdown(), markdownKeymap], [mode]);
+  const previewRef = useRef<HTMLElement | null>(null);
+  const sourceDetachRef = useRef<(() => void) | null>(null);
+  const previewDetachRef = useRef<(() => void) | null>(null);
+  const positionChangeRef = useRef(onScrollPositionChange);
+  positionChangeRef.current = onScrollPositionChange;
+
+  const coordinator = useMemo(
+    () => createScrollCoordinator(
+      scrollPosition ?? { line: 0, offset: 0 },
+      position => positionChangeRef.current(documentId, position),
+    ),
+    [documentId],
+  );
+
+  const attachSource = (view: EditorView) => {
+    sourceDetachRef.current?.();
+    sourceDetachRef.current = coordinator.register(createCodeMirrorScrollSurface(view));
+  };
+
+  const extensions = useMemo(() => mode === 'live-preview'
+    ? [markdown(), livePreviewExtension, markdownKeymap]
+    : [markdown(), markdownKeymap], [mode]);
   const rendered = useMemo(() => mode === 'preview'
     ? DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string)
     : '', [content, mode]);
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;
+
+  useLayoutEffect(() => {
+    if (mode === 'preview') {
+      const element = previewRef.current;
+      if (element) {
+        previewDetachRef.current = coordinator.register(createPreviewScrollSurface(element, content));
+      }
+    } else if (editorRef.current?.dom.isConnected && !sourceDetachRef.current) {
+      attachSource(editorRef.current);
+    }
+
+    return () => {
+      sourceDetachRef.current?.();
+      sourceDetachRef.current = null;
+      previewDetachRef.current?.();
+      previewDetachRef.current = null;
+    };
+  }, [coordinator, mode, mode === 'preview' ? content : null]);
+
+  useLayoutEffect(() => () => coordinator.destroy(), [coordinator]);
 
   const applyEdit = (edit: (text: string, from: number, to: number) => { text: string; selection: { from: number; to: number } }) => {
     const view = editorRef.current;
@@ -139,6 +197,7 @@ export function EditorWorkspace({ documentId, editorStates, mode, onModeChange, 
             const savedState = editorStates.get(documentId);
             if (savedState) view.setState(savedState);
             editorStates.set(documentId, view.state);
+            attachSource(view);
           }}
           basicSetup={{
             lineNumbers: true,
@@ -153,7 +212,12 @@ export function EditorWorkspace({ documentId, editorStates, mode, onModeChange, 
           className="gitnotes-codemirror"
         />
       </div>
-      <article className="markdown-preview" hidden={mode !== 'preview'} dangerouslySetInnerHTML={{ __html: rendered }} />
+      <article
+        ref={previewRef}
+        className="markdown-preview"
+        hidden={mode !== 'preview'}
+        dangerouslySetInnerHTML={{ __html: rendered }}
+      />
       <div className="editor-status">
         <span>{mode === 'preview' ? 'Режим читання' : mode === 'live-preview' ? 'Редагування з форматуванням' : 'Вихідний Markdown'}</span>
         <span>{wordCount} слів · {lineCount} рядків · {content.length} символів</span>

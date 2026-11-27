@@ -105,6 +105,51 @@ test('restores each note editor state and undo history after switching tabs', as
   await expect(editor).toContainText('Note B');
 });
 
+test('restores one logical scroll position per note across Source and Preview', async ({ page }) => {
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
+
+  const content = Array.from({ length: 80 }, (_, index) =>
+    `Paragraph ${index + 1} with enough text to occupy a visible line in the editor and preview.`,
+  ).join('\n\n');
+  const editor = page.locator('.cm-content');
+  await editor.fill(content);
+
+  const source = page.locator('.cm-scroller');
+  await source.evaluate(element => { element.scrollTop = element.scrollHeight * 0.55; element.dispatchEvent(new Event('scroll')); });
+  await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const initialSourceTop = await source.evaluate(element => element.scrollTop);
+
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).first().click();
+  await expect.poll(() => source.evaluate(element => element.scrollTop))
+    .toBeGreaterThan(initialSourceTop * 0.8);
+
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  const preview = page.locator('.markdown-preview');
+  await expect(preview).toBeVisible();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+  await preview.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.75;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const savedPreviewTop = await preview.evaluate(element => element.scrollTop);
+
+  await page.getByRole('tab', { name: 'Source' }).click();
+  await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop))
+    .toBeGreaterThan(savedPreviewTop * 0.8);
+
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).last().click();
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).first().click();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop))
+    .toBeGreaterThan(savedPreviewTop * 0.8);
+});
+
 test('Ctrl+I applies italic formatting to the selected text', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('selected text');

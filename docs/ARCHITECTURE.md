@@ -11,7 +11,7 @@
 ## Current implementation
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
-- `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview and Preview modes, Markdown formatting commands, selection-aware editing and reading statistics.
+- `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
 - `src/core/domain/workspace-file-system.ts`: repository-scoped virtual file tree contract, path validation and path helpers.
@@ -21,10 +21,14 @@
 ## Editor behavior
 
 - Source and Live Preview share one persistent CodeMirror 6 instance. Switching to Preview hides the editor without destroying its undo history or selection.
+- `src/modules/editor/navigation/scroll-position.ts` defines the logical document position (line plus fractional offset) and adapters for CodeMirror 6 and rendered Markdown Preview. Preview mapping derives heading and image anchors from the Lezer Markdown syntax tree so tall rendered blocks do not distort document position.
+- `src/modules/editor/navigation/scroll-coordinator.ts` coordinates registered scroll surfaces around one position, reports position changes through the owning document callback, and exposes `scrollTo`/`subscribe` so a future minimap can drive and observe the same navigation state. The coordinator does not depend on a minimap being mounted.
 - The formatting toolbar supports bold, italic, strikethrough, inline code, links, headings, lists, blockquotes and horizontal rules.
 - Live Preview uses the Lezer Markdown syntax tree to identify fenced and inline code ranges before applying inline decorations, so formatting/link rules skip code. Other presentation rules are still lightweight line-level transforms.
 - Undo/redo use CodeMirror history. CodeMirror's standard editing keymaps and search panel remain available.
 - Preview renders GitHub-Flavored Markdown through Marked and sanitizes generated HTML with DOMPurify before insertion.
+- Scroll position is retained per document across tab and mode switches. Source and Live Preview use the same CodeMirror scroll surface; Preview translates between rendered pixels and logical document lines using heading/image anchors, with a proportional fallback where no anchors exist.
+- A minimap UI and simultaneous Split-pane layout are not implemented yet. They must use the existing scroll coordinator rather than introduce a parallel scroll-sync mechanism.
 - Editor content is read and written through the `DocumentSource` contract. The current implementation is `LocalIndexedDbDocumentSource`; it performs no network or Git operations.
 - Document metadata carries an optional repository-relative `path`, optional remote `baseSha`, and `syncState` (`local`, `clean`, `dirty` or `conflict`).
 

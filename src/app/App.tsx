@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorState } from '@codemirror/state';
+import type { DocumentScrollPosition } from '../modules/editor/navigation/scroll-position';
 import { Files, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
@@ -40,6 +41,7 @@ export function App() {
   const dirtyTitleNoteIds = useRef(new Set<string>());
   const activeNoteIdRef = useRef<string | null>(null);
   const editorStatesRef = useRef(new Map<string, EditorState>());
+  const scrollPositionsRef = useRef(new Map<string, DocumentScrollPosition>());
 
   const activeTab = useMemo(
     () => workspace?.tabs.find(tab => tab.id === workspace.activeTabId) ?? null,
@@ -223,6 +225,7 @@ export function App() {
       saveSequence.current += 1;
       if (activeNote.path) await workspaceFileSystem.remove(activeNote.repositoryId, activeNote.path);
       else await documentSource.remove(activeNote.id);
+      scrollPositionsRef.current.delete(activeNote.id);
       dirtyNoteIds.current.delete(activeNote.id);
       dirtyTitleNoteIds.current.delete(activeNote.id);
       const manager = managerRef.current;
@@ -252,6 +255,11 @@ export function App() {
       ? { ...note, content, syncState: note.path ? (note.syncState === 'conflict' ? 'conflict' : 'dirty') : 'local', updatedAt: Date.now() }
       : note));
   }, []);
+
+  const handleScrollPositionChange = useCallback((documentId: string, position: DocumentScrollPosition) => {
+    if (!notes.some(note => note.id === documentId)) return;
+    scrollPositionsRef.current.set(documentId, position);
+  }, [notes]);
 
   const saveLabel = saveState === 'saving' ? 'Збереження…'
     : saveState === 'error' ? 'Помилка збереження'
@@ -318,7 +326,7 @@ export function App() {
                 <button className="attachment-button" disabled title="Вкладення будуть додані окремим модулем"><Paperclip size={16} />Вкладені файли</button>
               </div>
             </div>
-            <EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
+            <EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
           </> : <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
         </section>
       </div>
