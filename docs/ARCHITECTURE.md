@@ -14,6 +14,7 @@
 - `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview and Preview modes, Markdown formatting commands, selection-aware editing and reading statistics.
 - `src/infrastructure/storage`: Dexie database and local note/draft/workspace stores.
 - `src/core/domain`: repository capabilities, globally scoped workspace tabs and Working Tree model.
+- `e2e`: Playwright browser-level regression tests.
 
 ## Editor behavior
 
@@ -23,6 +24,17 @@
 - Undo/redo use CodeMirror history. CodeMirror's standard editing keymaps and search panel remain available.
 - Preview renders GitHub-Flavored Markdown through Marked and sanitizes generated HTML with DOMPurify before insertion.
 - Editor content remains controlled by the active local note and is autosaved by the local note store.
+
+## Automated quality gates
+
+Every feature change must include regression coverage appropriate to its behavior:
+
+- Unit tests cover pure functions, domain rules, state transitions and error cases.
+- Component/integration tests cover React interactions and storage boundaries where practical.
+- Playwright tests cover user-visible workflows and regressions that depend on the browser, DOM, IndexedDB, keyboard input, layout or navigation.
+- CI runs unit tests, Chromium browser tests and the production build independently. A change is not considered verified until all three jobs pass.
+- Bug fixes should add a regression test that fails before the fix and passes after it.
+- Browser-test failures retain traces/screenshots as CI artifacts to make diagnosis reproducible.
 
 ## Workspace manager and UI integration
 

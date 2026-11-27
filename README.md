@@ -18,13 +18,31 @@ GitNotes is a local-first workspace for notes and documents with Git-based versi
 - Selecting a tab does not activate remote access for its repository; remote operations require explicit repository activation.
 - No GitHub authentication or remote repository operations are enabled yet.
 
-## Development
+## Quality checks
+
+The CI workflow runs three independent checks on every push to `main` and every pull request:
+
+- **Unit tests:** Vitest tests for domain logic and editor helpers.
+- **Browser tests:** Playwright end-to-end tests in Chromium for application startup, note creation, autosave and reload persistence, editor modes, Markdown toolbar actions and note deletion.
+- **Production build:** TypeScript project checks and Vite production build.
+
+Browser tests record screenshots and traces on failure. The CI job uploads the report and test artifacts for seven days.
+
+### Run locally
 
 ```sh
 npm install
 npm run dev
 npm test
 npm run build
+```
+
+Playwright is pinned to `@playwright/test@1.65.1` in CI. To run browser tests locally, install the same runner and Chromium:
+
+```sh
+npm install --no-save --package-lock=false @playwright/test@1.65.1
+npx playwright install chromium
+npm run test:e2e
 ```
 
 ## Scope and data compatibility
