@@ -14,6 +14,13 @@ function buildDecorations(view: EditorView): DecorationSet {
     if (to > from) hidden.push({ from, to });
   };
 
+  const activeLines = new Set<number>();
+  for (const range of view.state.selection.ranges) {
+    const first = view.state.doc.lineAt(range.from).number;
+    const last = view.state.doc.lineAt(range.to).number;
+    for (let number = first; number <= last; number += 1) activeLines.add(number);
+  }
+
   for (const { from, to } of view.visibleRanges) {
     const firstLine = view.state.doc.lineAt(from);
     let lineStart = firstLine.from;
@@ -23,7 +30,16 @@ function buildDecorations(view: EditorView): DecorationSet {
       const lineEnd = view.state.doc.lineAt(lineStart).to;
       const line = view.state.doc.sliceString(lineStart, lineEnd);
 
-      if (fence) {
+      const lineNumber = view.state.doc.lineAt(lineStart).number;
+      if (activeLines.has(lineNumber)) {
+        // Keep the source visible on the line being edited so pointer selection
+        // never has to cross zero-width Markdown decorations.
+        if (fence && isFenceClosing(line, fence)) {
+          fence = null;
+        } else if (!fence) {
+          fence = parseFenceOpening(line);
+        }
+      } else if (fence) {
         if (isFenceClosing(line, fence)) {
           hide(lineStart, lineEnd);
           fence = null;
@@ -119,7 +135,10 @@ function buildDecorations(view: EditorView): DecorationSet {
 
   const ranges = [
     ...marks.map(range => Decoration.mark({ class: range.className }).range(range.from, range.to)),
-    ...hidden.map(range => Decoration.replace({}).range(range.from, range.to)),
+    // Preserve the original text width and document positions. Replacing
+    // Markdown markers with zero-width decorations makes mouse selection
+    // unstable when the hidden ranges are rebuilt during a drag.
+    ...hidden.map(range => Decoration.mark({ class: 'gn-markup-hidden' }).range(range.from, range.to)),
   ].sort((a, b) => a.from - b.from || a.to - b.to);
 
   return Decoration.set(ranges, true);
@@ -134,7 +153,7 @@ export const livePreviewExtension = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet) {
         this.decorations = buildDecorations(update.view);
       }
     }

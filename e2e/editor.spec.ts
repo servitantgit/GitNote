@@ -64,3 +64,40 @@ test('deletes a note after confirmation', async ({ page }) => {
 
   await expect(page.getByRole('list', { name: 'Список нотаток' })).not.toContainText('Note to delete');
 });
+
+
+test('mouse selection in Live Preview keeps text and selects the intended phrase', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  const source = '**select this phrase** and keep the rest';
+
+  await editor.fill(source);
+  await page.getByRole('tab', { name: 'Live Preview' }).click();
+
+  const point = await editor.evaluate((element) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      const index = node.textContent?.indexOf('select this phrase') ?? -1;
+      if (index < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, index);
+      range.setEnd(node, index + 'select this phrase'.length);
+      const rect = range.getBoundingClientRect();
+      return {
+        startX: rect.left + 1,
+        endX: rect.right - 1,
+        y: rect.top + rect.height / 2,
+      };
+    }
+    throw new Error('Target phrase was not found in the editor DOM');
+  });
+
+  await page.mouse.move(point.startX, point.y);
+  await page.mouse.down();
+  await page.mouse.move(point.endX, point.y, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(editor).toContainText(source);
+  const selected = await editor.evaluate(() => window.getSelection()?.toString() ?? '');
+  expect(selected).toContain('select this phrase');
+});
