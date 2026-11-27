@@ -7,9 +7,7 @@ import {
 const INITIAL_POSITION: DocumentScrollPosition = { line: 0, offset: 0 };
 
 function samePosition(a: DocumentScrollPosition, b: DocumentScrollPosition): boolean {
-  // Keep echo detection below sub-pixel wheel movement. A wider tolerance can
-  // mistake slow user scrolling for a pending programmatic scroll event.
-  return Math.abs(a.line - b.line) < 0.002 && Math.abs(a.offset - b.offset) < 0.005;
+  return Math.abs(a.line - b.line) < 0.02 && Math.abs(a.offset - b.offset) < 0.03;
 }
 
 /**

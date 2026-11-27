@@ -5,14 +5,15 @@ All notable changes to GitNotes are documented here.
 ## [Unreleased]
 
 ### Added
-- Desktop minimap for Markdown documents, with Lezer-based structure marks, cursor and viewport indicators, and click/drag navigation synchronized across Source, Live Preview and Preview.
+- Desktop minimap for Markdown documents, with Lezer-based structure marks, cursor and viewport indicators, and click/drag navigation synchronized across Source, Live and Preview.
 - Chromium regression coverage for minimap navigation in all three editor modes.
-- Separate 50/50 Split mode with simultaneous editable Source and rendered Preview panes, using the existing bidirectional scroll coordinator.
-- Chromium regression coverage for Split layout, live rendering and bidirectional scroll synchronization.
+- Live mode with editable Source and rendered Preview panes side by side, using the existing bidirectional scroll coordinator.
+- Chromium regression coverage for Live layout, live rendering and bidirectional scroll synchronization.
 
 ### Fixed
-- Split Preview no longer drops small, slow mouse-wheel increments when they fall within the scroll coordinator's echo-suppression tolerance.
+- CodeMirror scroll restoration now applies each synchronized position in one measured write, avoiding an intermediate scroll event that could cancel small Preview wheel movements.
 
 ### Changed
-- Tightened scroll echo detection and added unit and Chromium regression coverage for fractional wheel movement in Split mode.
-- Updated editor architecture and project documentation for the Split mode and its shared scroll-coordinator integration.
+- Kept the existing scroll echo tolerance and added Chromium regression coverage for fractional wheel movement in Live mode.
+- Consolidated the editor to exactly three modes: Source, Live and Preview; removed the former inline-formatting Live Preview mode.
+- Updated editor architecture and project documentation for Live mode and its shared scroll-coordinator integration.

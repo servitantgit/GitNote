@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import type { EditorMode } from './types';
 import { prefixLines, toggleHeading, wrapSelection } from './markdown-commands';
-import { livePreviewExtension } from './live-preview';
 import { createScrollCoordinator } from './navigation/scroll-coordinator';
 import {
   createCodeMirrorScrollSurface,
@@ -54,9 +53,8 @@ const markdownKeymap = Prec.high(keymap.of([
 
 const modes: { id: EditorMode; label: string }[] = [
   { id: 'source', label: 'Source' },
-  { id: 'live-preview', label: 'Live Preview' },
+  { id: 'live', label: 'Live' },
   { id: 'preview', label: 'Preview' },
-  { id: 'split', label: 'Split' },
 ];
 
 export function EditorWorkspace({
@@ -99,17 +97,15 @@ export function EditorWorkspace({
     };
   };
 
-  const extensions = useMemo(() => mode === 'live-preview'
-    ? [markdown(), livePreviewExtension, markdownKeymap]
-    : [markdown(), markdownKeymap], [mode]);
-  const rendered = useMemo(() => mode === 'preview' || mode === 'split'
+  const extensions = useMemo(() => [markdown(), markdownKeymap], []);
+  const rendered = useMemo(() => mode === 'preview' || mode === 'live'
     ? DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string)
     : '', [content, mode]);
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;
 
   useLayoutEffect(() => {
-    if (mode === 'preview' || mode === 'split') {
+    if (mode === 'preview' || mode === 'live') {
       const element = previewRef.current;
       const current = previewAttachmentRef.current;
       if (element && (current?.coordinator !== coordinator || current.element !== element)) {
@@ -137,7 +133,7 @@ export function EditorWorkspace({
         previewAttachmentRef.current = null;
       }
     };
-  }, [coordinator, mode, mode === 'preview' || mode === 'split' ? content : null]);
+  }, [coordinator, mode, mode === 'preview' || mode === 'live' ? content : null]);
 
   // Surface listeners are detached by the effect above. Do not terminally destroy
   // this memoized coordinator here: React StrictMode replays effect cleanup/setup
@@ -198,7 +194,7 @@ export function EditorWorkspace({
           >
             <MapIcon size={15} />
           </button>
-          <span className="editor-language">{mode === 'live-preview' ? 'LIVE MARKDOWN' : 'MARKDOWN'}</span>
+          <span className="editor-language">{mode === 'live' ? 'LIVE MARKDOWN' : 'MARKDOWN'}</span>
         </div>
       </div>
 
@@ -222,7 +218,7 @@ export function EditorWorkspace({
         </div>
       )}
 
-      <div className={'editor-main' + (mode === 'split' ? ' split-mode' : '')}>
+      <div className={'editor-main' + (mode === 'live' ? ' live-mode' : '')}>
       <div className={'source-editor' + (mode === 'preview' ? ' source-editor-hidden' : '')}>
         <CodeMirror
           key={documentId}
@@ -259,7 +255,7 @@ export function EditorWorkspace({
         key={documentId}
         ref={previewRef}
         className="markdown-preview"
-        hidden={mode !== 'preview' && mode !== 'split'}
+        hidden={mode !== 'preview' && mode !== 'live'}
         dangerouslySetInnerHTML={{ __html: rendered }}
       />
       {minimapOpen && (
@@ -273,7 +269,7 @@ export function EditorWorkspace({
       )}
       </div>
       <div className="editor-status">
-        <span>{mode === 'preview' ? 'Режим читання' : mode === 'live-preview' ? 'Редагування з форматуванням' : mode === 'split' ? 'Редагування та попередній перегляд' : 'Вихідний Markdown'}</span>
+        <span>{mode === 'preview' ? 'Режим читання' : mode === 'live' ? 'Редагування та попередній перегляд' : 'Вихідний Markdown'}</span>
         <span>{wordCount} слів · {lineCount} рядків · {content.length} символів</span>
       </div>
     </div>
