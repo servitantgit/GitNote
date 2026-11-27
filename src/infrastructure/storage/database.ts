@@ -24,6 +24,7 @@ class GitNotesDatabase extends Dexie {
   notes!: EntityTable<LocalNote, 'id'>;
   workspaces!: EntityTable<StoredWorkspace, 'id'>;
   fileNodes!: EntityTable<WorkspaceFileNode, 'id'>;
+  binaryDocuments!: EntityTable<BinaryDocumentRecord, 'id'>;
 
   constructor() {
     // Keep the existing database name so previously saved GitNote notes remain accessible.
