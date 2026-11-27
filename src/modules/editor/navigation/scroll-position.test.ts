@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createPreviewScrollSurface, normalizeScrollPosition } from './scroll-position';
 
 describe('normalizeScrollPosition', () => {
@@ -50,5 +50,50 @@ describe('createPreviewScrollSurface', () => {
 
     element.scrollTop = 600;
     expect(surface.readPosition()).toEqual({ line: 2, offset: 0.5 });
+  });
+});
+
+describe('Preview scroll surface layout observation', () => {
+  it('notifies subscribers when an image loads or an observed element changes size', () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver');
+    const observers: Array<{ callback: ResizeObserverCallback; disconnect: ReturnType<typeof vi.fn> }> = [];
+
+    class MockResizeObserver {
+      disconnect = vi.fn();
+      observe = vi.fn();
+      unobserve = vi.fn();
+
+      constructor(callback: ResizeObserverCallback) {
+        observers.push({ callback, disconnect: this.disconnect });
+      }
+    }
+
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: MockResizeObserver,
+    });
+
+    try {
+      const element = document.createElement('article');
+      const image = document.createElement('img');
+      element.append(image);
+      const surface = createPreviewScrollSurface(element, 'Text\n![image](image.png)');
+      const listener = vi.fn();
+      const unsubscribe = surface.subscribe(listener);
+
+      image.dispatchEvent(new Event('load'));
+      observers[0].callback([], observers[0] as unknown as ResizeObserver);
+
+      expect(listener).toHaveBeenCalledTimes(2);
+      unsubscribe();
+      expect(observers[0].disconnect).toHaveBeenCalledOnce();
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(globalThis, 'ResizeObserver', originalDescriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'ResizeObserver');
+      }
+    }
   });
 });

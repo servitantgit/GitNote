@@ -94,6 +94,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - npm run build: TypeScript project build and Vite production build.
 - GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium) and Production build jobs.
 - Playwright failure artifacts include HTML report, screenshots and traces.
+- Scroll regression coverage checks Source and Live Preview continuity, Preview synchronization, independent positions for separate notes, and Preview image-load/ResizeObserver notifications. The minimap has no UI yet; its future browser-level behavior remains untested until implementation.
 - Do not mark a commit verified unless all three latest CI jobs pass.
 
 ## Roadmap and status
