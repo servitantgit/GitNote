@@ -42,6 +42,7 @@ Every feature change must include regression coverage appropriate to its behavio
 - CI runs unit tests, Chromium browser tests and the production build independently. A change is not considered verified until all three jobs pass.
 - Bug fixes should add a regression test that fails before the fix and passes after it.
 - Browser-test failures retain traces/screenshots as CI artifacts to make diagnosis reproducible.
+- Scroll regression coverage exercises Source/Live Preview/Preview transitions, independent per-note positions, and Preview image-load/resize notifications. The minimap UI is not implemented, so only the coordinator's generic controller contract is covered until a real minimap exists.
 
 ## Workspace manager and UI integration
 

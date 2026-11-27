@@ -120,6 +120,20 @@ test('restores one logical scroll position per note across Source and Preview', 
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
 
+  // Source and Live Preview use the same editor surface; mode changes must not
+  // reset its viewport or break synchronization with the reading Preview.
+  await page.getByRole('tab', { name: 'Live Preview' }).click();
+  await expect.poll(() => source.evaluate(element => element.scrollTop))
+    .toBeGreaterThan(initialSourceTop * 0.8);
+  await source.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.65;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  const livePreviewTop = await source.evaluate(element => element.scrollTop);
+  await page.getByRole('tab', { name: 'Source' }).click();
+  await expect.poll(() => source.evaluate(element => element.scrollTop))
+    .toBeGreaterThan(livePreviewTop * 0.8);
+
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(2);
   await page.getByRole('tab', { name: 'Без назви', exact: true }).first().click();
@@ -229,4 +243,47 @@ test('renames and moves VFS nodes atomically and recursively removes linked docu
 
   expect(result.path).toBe('Notes/VfsRenamed/renamed.md');
   expect(result.deleted).toBe(true);
+});
+
+test('keeps independent scroll positions for two notes across all editor modes', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  const source = page.locator('.cm-scroller');
+  const tabs = page.getByRole('tab', { name: 'Без назви', exact: true });
+
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(tabs).toHaveCount(1);
+  await editor.fill(Array.from({ length: 100 }, (_, index) => `Note A paragraph ${index + 1}`).join('\n\n'));
+  await source.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.3;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  const noteAScroll = await source.evaluate(element => element.scrollTop);
+
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await expect(tabs).toHaveCount(2);
+  await editor.fill(Array.from({ length: 100 }, (_, index) => `Note B paragraph ${index + 1}`).join('\n\n'));
+  await source.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.72;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  const noteBScroll = await source.evaluate(element => element.scrollTop);
+  expect(noteBScroll).toBeGreaterThan(noteAScroll * 1.5);
+
+  await tabs.first().click();
+  await expect.poll(() => source.evaluate(element => element.scrollTop))
+    .toBeGreaterThan(noteAScroll * 0.8);
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  const preview = page.locator('.markdown-preview');
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+  await tabs.last().click();
+  await page.getByRole('tab', { name: 'Source' }).click();
+  await expect.poll(() => source.evaluate(element => element.scrollTop))
+    .toBeGreaterThan(noteBScroll * 0.8);
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+  await tabs.first().click();
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 });
