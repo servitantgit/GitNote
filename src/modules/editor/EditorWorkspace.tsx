@@ -185,7 +185,19 @@ export function EditorWorkspace({
             </button>
           ))}
         </div>
-        <span className="editor-language">{mode === 'live-preview' ? 'LIVE MARKDOWN' : 'MARKDOWN'}</span>
+        <div className="editor-toolbar-actions">
+          <button
+            type="button"
+            className={'minimap-toggle' + (minimapOpen ? ' active' : '')}
+            aria-label={minimapOpen ? 'Приховати мінімапу' : 'Показати мінімапу'}
+            aria-pressed={minimapOpen}
+            title="Мінімапа документа"
+            onClick={() => setMinimapOpen(open => !open)}
+          >
+            <MapIcon size={15} />
+          </button>
+          <span className="editor-language">{mode === 'live-preview' ? 'LIVE MARKDOWN' : 'MARKDOWN'}</span>
+        </div>
       </div>
 
       {mode !== 'preview' && (

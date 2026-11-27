@@ -49,7 +49,8 @@ export function buildMinimapLineKinds(content: string): LineKind[] {
 }
 
 export function positionAtMinimapRatio(ratio: number, lineCount: number): DocumentScrollPosition {
-  const count = Math.max(1, Math.floor(lineCount));
+  const count = Math.floor(lineCount);
+  if (!Number.isFinite(count) || count <= 0) return { line: 0, offset: 0 };
   const bounded = Math.min(1, Math.max(0, Number.isFinite(ratio) ? ratio : 0));
   const value = bounded * count;
   const line = Math.min(count - 1, Math.floor(value));
