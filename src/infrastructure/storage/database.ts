@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { WorkspaceSnapshot } from '../../core/domain/workspace';
+import type { DocumentMeta } from '../../core/domain/document-source';
 
 export interface LocalDraft {
   id: string;
@@ -9,13 +10,8 @@ export interface LocalDraft {
   updatedAt: number;
 }
 
-export interface LocalNote {
-  id: string;
-  repositoryId: string;
-  title: string;
+export interface LocalNote extends DocumentMeta {
   content: string;
-  createdAt: number;
-  updatedAt: number;
 }
 
 interface StoredWorkspace {
@@ -42,6 +38,13 @@ class GitNotesDatabase extends Dexie {
       notes: 'id, repositoryId, title, createdAt, updatedAt',
       workspaces: 'id, updatedAt',
     });
+    this.version(4).stores({
+      drafts: 'id, repositoryId, path, updatedAt',
+      notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      workspaces: 'id, updatedAt',
+    }).upgrade(transaction => transaction.table('notes').toCollection().modify(note => {
+      if (!note.syncState) note.syncState = 'local';
+    }));
   }
 }
 

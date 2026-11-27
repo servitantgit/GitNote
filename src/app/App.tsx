@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Files, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
-import { noteStore, workspaceStore, type LocalNote } from '../infrastructure/storage/database';
+import { workspaceStore, type LocalNote } from '../infrastructure/storage/database';
+import { documentSource } from '../infrastructure/storage/local-document-source';
 import { WorkspaceManager, type WorkspaceSnapshot } from '../core/domain/workspace';
 import './app.css';
 
@@ -14,7 +15,7 @@ type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
 function makeNote(title = 'Без назви', content = ''): LocalNote {
   const now = Date.now();
-  return { id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title, content, createdAt: now, updatedAt: now };
+  return { id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title, content, syncState: 'local', createdAt: now, updatedAt: now };
 }
 
 function tabForNote(note: LocalNote) {
@@ -63,16 +64,20 @@ export function App() {
     let cancelled = false;
     async function loadWorkspace() {
       try {
-        const [storedNotes, savedWorkspace] = await Promise.all([
-          noteStore.list(LOCAL_REPOSITORY_ID),
+        const [documentMetas, savedWorkspace] = await Promise.all([
+          documentSource.list(),
           workspaceStore.get(),
         ]);
+        let storedNotes = await Promise.all(documentMetas.map(async meta => ({
+          ...meta,
+          ...await documentSource.read(meta.id),
+        })));
         if (cancelled) return;
 
         let nextNotes = storedNotes;
         if (nextNotes.length === 0) {
           const welcomeNote = makeNote('Моя перша нотатка', INITIAL_CONTENT);
-          await noteStore.save(welcomeNote);
+          await documentSource.create(welcomeNote, welcomeNote.content);
           nextNotes = [welcomeNote];
         }
 
@@ -113,7 +118,7 @@ export function App() {
     setSaveState('saving');
     const timer = window.setTimeout(() => {
       saveTimer.current = null;
-      void Promise.all(pendingNotes.map(note => noteStore.save(note)))
+      void Promise.all(pendingNotes.map(note => documentSource.write(note.id, note.content, note.baseSha)))
         .then(() => {
           if (saveSequence.current !== sequence) return;
           for (const savedNote of pendingNotes) {
@@ -139,10 +144,15 @@ export function App() {
 
   const updateActiveNote = useCallback((updates: Partial<Pick<LocalNote, 'title' | 'content'>>) => {
     if (!activeNote) return;
-    dirtyNoteIds.current.add(activeNote.id);
+    if (updates.content !== undefined) dirtyNoteIds.current.add(activeNote.id);
     setNotes(current => current.map(note => note.id === activeNote.id
       ? { ...note, ...updates, updatedAt: Date.now() }
       : note));
+    if (updates.title !== undefined) {
+      void documentSource.rename(activeNote.id, updates.title).catch(error => {
+        setStorageError(error instanceof Error ? error.message : 'Не вдалося перейменувати нотатку.');
+      });
+    }
     if (updates.title !== undefined && managerRef.current) {
       const manager = managerRef.current;
       const tabId = `note:${activeNote.id}`;
@@ -153,13 +163,17 @@ export function App() {
     }
   }, [activeNote, persistWorkspace]);
 
-  const createNote = useCallback(() => {
+  const createNote = useCallback(async () => {
     if (saveState === 'loading') return;
     const note = makeNote();
-    dirtyNoteIds.current.add(note.id);
-    setNotes(current => [note, ...current]);
-    openNote(note);
-    setMode('source');
+    try {
+      await documentSource.create(note, note.content);
+      setNotes(current => [note, ...current]);
+      openNote(note);
+      setMode('source');
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося створити нотатку.');
+    }
   }, [openNote, saveState]);
 
   const closeTab = useCallback((tabId: string) => {
@@ -181,14 +195,14 @@ export function App() {
       if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
       saveTimer.current = null;
       saveSequence.current += 1;
-      await noteStore.remove(activeNote.id);
+      await documentSource.remove(activeNote.id);
       dirtyNoteIds.current.delete(activeNote.id);
       const manager = managerRef.current;
       manager?.closeTab(`note:${activeNote.id}`);
       const remaining = notes.filter(note => note.id !== activeNote.id);
       if (remaining.length === 0) {
         const replacement = makeNote();
-        await noteStore.save(replacement);
+        await documentSource.create(replacement, replacement.content);
         setNotes([replacement]);
         manager?.openTab(tabForNote(replacement));
       } else {
@@ -207,7 +221,7 @@ export function App() {
     if (!noteId) return;
     dirtyNoteIds.current.add(noteId);
     setNotes(current => current.map(note => note.id === noteId
-      ? { ...note, content, updatedAt: Date.now() }
+      ? { ...note, content, syncState: note.path ? (note.syncState === 'conflict' ? 'conflict' : 'dirty') : 'local', updatedAt: Date.now() }
       : note));
   }, []);
 
