@@ -165,7 +165,6 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
     scrollToPosition(position) {
       const normalized = normalizeScrollPosition(position, view.state.doc.lines);
       const lineNumber = normalized.line + 1;
-      if (normalized.line > 50) console.info('CM_SCROLL_REQUEST', { position, normalized, lineNumber, scrollTop: view.scrollDOM.scrollTop, clientWidth: view.scrollDOM.clientWidth });
       view.requestMeasure({
         key: view,
         read: () => {
@@ -173,12 +172,10 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
           const block = view.lineBlockAt(line.from);
           const height = Math.max(1, block.bottom - block.top);
           const target = block.top + height * normalized.offset;
-          if (normalized.line > 50) console.info('CM_SCROLL_MEASURE', { requested: normalized, lineNumber, blockTop: block.top, blockBottom: block.bottom, height, target, scrollTopBeforeWrite: view.scrollDOM.scrollTop, clientWidth: view.scrollDOM.clientWidth });
           return target;
         },
         write: documentOffset => {
           view.scrollDOM.scrollTop = documentOffset;
-          if (normalized.line > 50) console.info('CM_SCROLL_WRITE', { requested: normalized, target: documentOffset, scrollTopAfterWrite: view.scrollDOM.scrollTop, clientWidth: view.scrollDOM.clientWidth });
         },
       });
     },

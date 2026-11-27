@@ -29,9 +29,6 @@ export function createScrollCoordinator(
     if (destroyed) return;
     const previousPosition = position;
     position = normalizeScrollPosition(next, Number.MAX_SAFE_INTEGER);
-    if (position.line > 50 || previousPosition.line > 50) {
-      console.info('SCROLL_COORDINATOR_PUBLISH', { sourceId, previousPosition, nextPosition: position });
-    }
     onPositionChange(position);
     listeners.forEach(listener => listener(position));
 
@@ -53,9 +50,6 @@ export function createScrollCoordinator(
     }
 
     const pending = pendingWrites.get(id);
-    if (next.line > 50 || pending?.line && pending.line > 50) {
-      console.info('SCROLL_COORDINATOR_SURFACE_EVENT', { id, nextPosition: next, pendingPosition: pending, coordinatorPosition: position });
-    }
     if (pending && samePosition(next, pending)) {
       pendingWrites.delete(id);
       return;
@@ -73,7 +67,6 @@ export function createScrollCoordinator(
     const unsubscribe = surface.subscribe(() => handleSurfaceScroll(surface.id));
     surfaces.set(surface.id, { surface, unsubscribe });
     pendingWrites.set(surface.id, position);
-    if (position.line > 50) console.info('SCROLL_COORDINATOR_REGISTER', { id: surface.id, position });
     surface.scrollToPosition(position);
 
     return () => {

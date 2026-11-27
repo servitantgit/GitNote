@@ -153,59 +153,26 @@ test('restores one logical scroll position per note across Source and Preview', 
   const preview = page.locator('.markdown-preview');
   const readVisibleLogicalPosition = () => source.evaluate(element => {
     const viewport = element.getBoundingClientRect();
-    const lines = Array.from(element.querySelectorAll<HTMLElement>('.cm-content > .cm-line'));
-    const lineNumbers = Array.from(element.querySelectorAll<HTMLElement>('.cm-gutter.cm-lineNumbers .cm-gutterElement'));
-    const visibleLine = lines.find(line => {
-      const bounds = line.getBoundingClientRect();
-      return bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
-    });
+    const visibleLine = Array.from(element.querySelectorAll<HTMLElement>('.cm-content > .cm-line'))
+      .find(line => {
+        const bounds = line.getBoundingClientRect();
+        return bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
+      });
     if (!visibleLine) return null;
+
+    // Each fixture paragraph occupies one Markdown source line. Read its
+    // identity from the line content, not the gutter: wrapped visual lines
+    // share one logical CodeMirror line and cannot be paired by DOM index.
+    const paragraph = visibleLine.textContent?.match(/Paragraph (\d+)/);
+    if (!paragraph) return null;
     const bounds = visibleLine.getBoundingClientRect();
-    const matchingGutter = lineNumbers
-      .map(gutter => ({ gutter, top: gutter.getBoundingClientRect().top }))
-      .sort((a, b) => Math.abs(a.top - bounds.top) - Math.abs(b.top - bounds.top))[0];
-    if (!matchingGutter) return null;
-    const line = Number(matchingGutter.gutter.textContent?.trim()) - 1;
-    if (!Number.isFinite(line)) return null;
+    const line = (Number(paragraph[1]) - 1) * 2;
     return {
       line,
       offset: Math.max(0, Math.min(1, (viewport.top - bounds.top) / Math.max(1, bounds.height))),
     };
   });
 
-
-  const readPreviewLogicalPosition = () => preview.evaluate(element => {
-    const lineCount = 159;
-    const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
-    const bounds = element.getBoundingClientRect();
-    const pairs = [{ document: 0, preview: 0 }];
-    Array.from(element.querySelectorAll<HTMLElement>('p')).forEach((paragraph, index) => {
-      const rect = paragraph.getBoundingClientRect();
-      pairs.push(
-        { document: index * 2, preview: element.scrollTop + rect.top - bounds.top },
-        { document: index * 2 + 1, preview: element.scrollTop + rect.bottom - bounds.top },
-      );
-    });
-    pairs.push({ document: lineCount, preview: maxScroll });
-    const valid = pairs.filter(pair => pair.document > 0 && pair.document < lineCount && pair.preview > 0 && pair.preview < maxScroll)
-      .sort((a, b) => a.document - b.document || a.preview - b.preview);
-    const anchors = [{ document: 0, preview: 0 }];
-    for (const pair of valid) {
-      const previous = anchors[anchors.length - 1];
-      if (pair.document > previous.document && pair.preview > previous.preview) anchors.push(pair);
-    }
-    anchors.push({ document: lineCount, preview: maxScroll });
-    const value = element.scrollTop;
-    for (let index = 0; index < anchors.length - 1; index += 1) {
-      const start = anchors[index], end = anchors[index + 1];
-      if (value <= end.preview) {
-        const fraction = (value - start.preview) / Math.max(1, end.preview - start.preview);
-        const logical = start.document + fraction * (end.document - start.document);
-        return { line: Math.floor(logical), offset: logical - Math.floor(logical), scrollTop: element.scrollTop };
-      }
-    }
-    return { line: lineCount - 1, offset: 1, scrollTop: element.scrollTop };
-  });
 
   await source.evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; element.dispatchEvent(new Event('scroll')); });
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
@@ -239,41 +206,7 @@ test('restores one logical scroll position per note across Source and Preview', 
     return Math.abs(after - before) < 0.5;
   }).toBe(true);
   const liveLogicalPosition = await readVisibleLogicalPosition();
-  console.log('SCROLL_DIAGNOSTIC before-mode-switch', {
-    source: liveLogicalPosition,
-    preview: await readPreviewLogicalPosition(),
-    sourceScrollTop: await source.evaluate(element => element.scrollTop),
-    previewScrollTop: await preview.evaluate(element => element.scrollTop),
-  });
   await page.getByRole('tab', { name: 'Source' }).click();
-  const readLayoutMetrics = () => source.evaluate(element => ({
-    scrollTop: element.scrollTop,
-    scrollHeight: element.scrollHeight,
-    clientHeight: element.clientHeight,
-    viewportTop: element.getBoundingClientRect().top,
-    visibleLines: Array.from(element.querySelectorAll<HTMLElement>('.cm-content > .cm-line'))
-      .filter(line => {
-        const rect = line.getBoundingClientRect();
-        const viewport = element.getBoundingClientRect();
-        return rect.bottom > viewport.top && rect.top < viewport.bottom;
-      })
-      .slice(0, 3)
-      .map(line => ({ top: line.getBoundingClientRect().top, height: line.getBoundingClientRect().height })),
-    gutters: Array.from(element.querySelectorAll<HTMLElement>('.cm-gutter.cm-lineNumbers .cm-gutterElement'))
-      .slice(0, 5)
-      .map(gutter => ({ text: gutter.textContent?.trim(), top: gutter.getBoundingClientRect().top })),
-  }));
-  console.log('SCROLL_DIAGNOSTIC after-mode-switch-immediate', {
-    source: await readVisibleLogicalPosition(), metrics: await readLayoutMetrics(),
-  });
-  await page.waitForTimeout(100);
-  console.log('SCROLL_DIAGNOSTIC after-mode-switch-100ms', {
-    source: await readVisibleLogicalPosition(), metrics: await readLayoutMetrics(),
-  });
-  await page.waitForTimeout(250);
-  console.log('SCROLL_DIAGNOSTIC after-mode-switch-350ms', {
-    source: await readVisibleLogicalPosition(), metrics: await readLayoutMetrics(),
-  });
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
     return Boolean(next && liveLogicalPosition
