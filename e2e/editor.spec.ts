@@ -78,6 +78,10 @@ test('switching notes resets CodeMirror undo history', async ({ page }) => {
 
   await expect(editor).toContainText('Content belonging to note B');
   await expect(editor).not.toContainText('Content belonging to note A');
+
+  await page.getByRole('tab', { name: 'Моя перша нотатка', exact: true }).click();
+  await expect(editor).toContainText('Content belonging to note A');
+  await expect(editor).not.toContainText('Content belonging to note B');
 });
 
 test('Ctrl+I applies italic formatting to the selected text', async ({ page }) => {
