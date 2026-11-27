@@ -30,20 +30,27 @@ test('imports a local document, opens it and restores its Blob after reload', as
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    return new Promise<{ document: { path: string; size: number; content: Blob } | undefined; node: { path: string; documentId?: string } | undefined }>((resolve, reject) => {
+    return new Promise<{ document: { path: string; size: number; contentText: string } | undefined; node: { path: string; documentId?: string } | undefined }>((resolve, reject) => {
       const transaction = db.transaction(['binaryDocuments', 'fileNodes'], 'readonly');
       const documentsRequest = transaction.objectStore('binaryDocuments').getAll();
       const nodesRequest = transaction.objectStore('fileNodes').getAll();
       transaction.oncomplete = () => {
         const document = documentsRequest.result.find((item: { title: string }) => item.title === 'Browser import.txt');
-        resolve({ document, node: nodesRequest.result.find((item: { path: string }) => item.path === 'Documents/Browser import.txt') });
+        const node = nodesRequest.result.find((item: { path: string }) => item.path === 'Documents/Browser import.txt');
+        if (!document) {
+          resolve({ document: undefined, node });
+          return;
+        }
+        void document.content.text().then((contentText: string) => {
+          resolve({ document: { path: document.path, size: document.size, contentText }, node });
+        }, reject);
       };
       transaction.onerror = () => reject(transaction.error);
     });
   });
   expect(stored.document?.path).toBe('Documents/Browser import.txt');
   expect(stored.document?.size).toBe(Buffer.byteLength('Imported text remains binary-backed'));
-  expect(await stored.document?.content.text()).toBe('Imported text remains binary-backed');
+  expect(stored.document?.contentText).toBe('Imported text remains binary-backed');
   expect(stored.node?.documentId).toBeTruthy();
 
   await page.reload();

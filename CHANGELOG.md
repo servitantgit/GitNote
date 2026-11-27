@@ -1,21 +1,14 @@
 # Changelog
 
-## Unreleased
-
-- Add local import, listing, opening and deletion for supported Office/document files, with browser-local editing and Blob saves through `@p10node/office-engine`.
-- Add Chromium coverage for importing a document, verifying its Blob-backed VFS record and reopening it after reload.
-
 All notable changes to GitNotes are documented here.
 
 ## [Unreleased]
 
 ### Added
+- Add local import, listing, opening and deletion for supported Office/document files, with browser-local editing and Blob saves through `@p10node/office-engine`.
+- Add Chromium coverage for importing a document, verifying its Blob-backed VFS record and reopening it after reload.
 - Blob-preserving IndexedDB storage for binary workspace documents, separate from text notes, with transactional VFS registration and lifecycle updates.
 - Chromium regression coverage for binary Blob persistence, update, VFS rename and recursive deletion.
-- Blob-preserving IndexedDB storage for binary workspace documents, separate from text notes, with transactional VFS registration and lifecycle updates.
-- Chromium regression coverage for binary Blob persistence, update, VFS rename and recursive deletion.
-
-### Added
 - Optional Markdown Outline panel with Lezer-based ATX/Setext heading navigation, active-section tracking and synchronized scrolling in Source, Live and Preview.
 - Unit and Chromium regression coverage for Outline parsing, navigation and live updates.
 - Default line wrapping for long Markdown source lines in Source and Live modes, with Chromium regression coverage for horizontal overflow.
