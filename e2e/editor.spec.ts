@@ -143,9 +143,12 @@ test('restores one logical scroll position per note across Source and Preview', 
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
 
+  // One Markdown heading per source line avoids empty spacer lines at the
+  // viewport edge. Long headings wrap in Live, so the test still exercises
+  // different source-pane widths while retaining a stable line identity.
   const content = Array.from({ length: 80 }, (_, index) =>
-    `Paragraph ${index + 1} with enough text to occupy a visible line in the editor and preview.`,
-  ).join('\n\n');
+    `## Section ${index + 1} with enough text to wrap across multiple visual rows in the narrower Live source pane and remain a distinct heading in the rendered preview.`,
+  ).join('\\n');
   const editor = page.locator('.cm-content');
   await editor.fill(content);
 
@@ -160,29 +163,26 @@ test('restores one logical scroll position per note across Source and Preview', 
       });
     if (!visibleLine) return null;
 
-    // Each fixture paragraph occupies one Markdown source line. Read its
-    // identity from the line content, not the gutter: wrapped visual lines
-    // share one logical CodeMirror line and cannot be paired by DOM index.
-    const paragraph = visibleLine.textContent?.match(/Paragraph (\d+)/);
-    if (!paragraph) return null;
+    const section = visibleLine.textContent?.match(/Section (\\d+)/);
+    if (!section) return null;
     const bounds = visibleLine.getBoundingClientRect();
-    const line = (Number(paragraph[1]) - 1) * 2;
     return {
-      line,
+      line: Number(section[1]) - 1,
       offset: Math.max(0, Math.min(1, (viewport.top - bounds.top) / Math.max(1, bounds.height))),
-      text: visibleLine.textContent?.trim().slice(0, 100),
     };
   });
 
-
-  await source.evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; element.dispatchEvent(new Event('scroll')); });
+  await source.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55;
+    element.dispatchEvent(new Event('scroll'));
+  });
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
   const initialLogicalPosition = await readVisibleLogicalPosition();
+  expect(initialLogicalPosition).not.toBeNull();
 
-  // Source and Live use the same editor surface; compare the visible
-  // document line and its fractional offset, not pixels. Line wrapping changes
-  // the visual height of a logical line when the Source pane becomes narrower.
+  // Source and Live use the same editor surface. Compare its visible logical
+  // line and fractional offset rather than pixels, which change with wrapping.
   await page.getByRole('tab', { name: 'Live' }).click();
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
@@ -207,14 +207,9 @@ test('restores one logical scroll position per note across Source and Preview', 
     return Math.abs(after - before) < 0.5;
   }).toBe(true);
   const liveLogicalPosition = await readVisibleLogicalPosition();
+  expect(liveLogicalPosition).not.toBeNull();
+
   await page.getByRole('tab', { name: 'Source' }).click();
-  await page.waitForTimeout(100);
-  console.log('WRAP_SCROLL_POSITION_COMPARE', {
-    live: liveLogicalPosition,
-    source: await readVisibleLogicalPosition(),
-    scrollTop: await source.evaluate(element => element.scrollTop),
-    scrollHeight: await source.evaluate(element => element.scrollHeight),
-  });
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
     return Boolean(next && liveLogicalPosition
