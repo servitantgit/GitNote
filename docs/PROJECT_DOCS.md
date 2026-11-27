@@ -78,7 +78,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - npm test: Vitest unit tests.
 - npm run test:e2e: Playwright browser tests; CI installs Chromium and runs them.
 - npm run build: TypeScript project build and Vite production build.
-- GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium), and Production build jobs.
+- GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium) and Production build jobs.
 - Playwright failure artifacts include HTML report, screenshots and traces.
 - Do not mark a commit verified unless all three latest CI jobs pass.
 
@@ -92,7 +92,6 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [x] Add folder creation, atomic document-plus-file creation, file registration, rename, move and recursive delete operations.
 - [x] Preserve CodeMirror EditorState per document tab.
 - [x] Use Lezer syntax-tree information to protect code ranges in Live Preview.
-- [x] Add Chromium migration coverage for IndexedDB schema versions 1–4, including preservation of drafts, notes, workspace snapshots, sync metadata, duplicate paths and unsafe legacy paths.
 - [ ] Verify per-tab cursor, selection, scroll and undo history in Chromium.
 - [ ] Add/verify visual browser regression coverage for Source and Live Preview.
 - [ ] Fix all failures in the latest CI browser-test run.
@@ -158,3 +157,4 @@ Only after editor and local workspace foundations are ready:
 - No remote GitHub repository manager, OAuth, GitHub API integration, commits, pushes or remote conflict UI exists.
 - Do not claim roadmap items are implemented until source, tests and user-visible UI confirm them.
 - CI run `45925386493` on commit `060a43a` passed unit tests and production build but reported 2 failed, 2 flaky and 6 passed Chromium tests. Trace review showed several browser tests began typing immediately after clicking the asynchronous Create Note action, before the new tab became active. Browser tests now wait for the new tab before editing. New note and VFS file creation are also one IndexedDB transaction. CI run `45925981117` on commit `a6f51de` passed all three required jobs (unit tests, Chromium browser tests and production build).
+- CI run `45926418333` on commit `ab3f8cd`: unit tests and production build passed; all four new IndexedDB migration browser tests failed before reaching the app because their fixture used `about:blank`, where Chromium denies IndexedDB access for the opaque origin. The migration test fixture now seeds its legacy database from an inert same-origin document; this correction still requires a green CI run.

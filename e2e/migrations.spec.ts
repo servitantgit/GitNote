@@ -12,12 +12,18 @@ async function seedLegacyDatabase(
     workspace?: Record<string, unknown>;
   } = {},
 ) {
-  await page.goto('about:blank');
+  // IndexedDB is unavailable on about:blank because it has an opaque origin.
+  // Use an inert document served on the app's origin without booting the app.
+  await page.route('**/__playwright_seed__', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<!doctype html><html><body></body></html>',
+  }));
+  await page.goto('/__playwright_seed__');
   await page.evaluate(({ databaseName, version, data }) => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(databaseName, version);
     request.onupgradeneeded = () => {
       const db = request.result;
-      const transaction = request.transaction!;
       const drafts = db.createObjectStore('drafts', { keyPath: 'id' });
       for (const index of ['repositoryId', 'path', 'updatedAt']) drafts.createIndex(index, index);
 
