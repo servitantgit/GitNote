@@ -11,7 +11,7 @@
 ## Current implementation
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
-- `src/modules/editor`: CodeMirror 6 editor with Source, Live (simultaneous 50/50 Source and rendered Preview) and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation.
+- `src/modules/editor`: the Markdown editor module, using CodeMirror 6 with Source, Live (simultaneous 50/50 Source and rendered Preview) and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation. It is one format-specific editor, not the workspace's universal document surface.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
 - `src/core/domain/workspace-file-system.ts`: repository-scoped virtual file tree contract, path validation and path helpers.
@@ -70,7 +70,7 @@ Attachment metadata includes a path relative to the directory containing its par
 
 - `git-engine`: repository-scoped operation journal, tree construction, commit batching, conflict detection and GitHub transport.
 - `attachments`: note-scoped attachment lifecycle and format-handler registry.
-- `documents`: format adapters for Markdown and office documents.
+- `documents`: shared document-opening contract, format detection/capabilities and format-specific adapters. Markdown, Office (DOCX/XLSX/PPTX), PDF and HTML require appropriate independent viewers/editors; do not route every format through the Markdown editor.
 - `settings`, `help`, `search`: independent modules with versioned data/configuration.
 
 These are planned boundaries, not claims that they are implemented.

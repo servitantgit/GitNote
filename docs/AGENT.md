@@ -24,9 +24,10 @@ These instructions are mandatory for every task in this repository.
 ## 3. Product decisions that must be preserved
 
 - GitNotes is a separate product from MD-Editor. Its direction is a local-first workspace for notes and documents with Git version control and user-owned GitHub repositories.
-- The intended product analogy is OneNote + Git, not a Google Docs collaboration clone or an Obsidian knowledge-graph clone.
+- The intended product is a multi-format personal workspace: OneNote Online + Git, with support for notes, Office documents, PDF, HTML and other file types. It is not a Markdown-first editor, a Google Docs collaboration clone or an Obsidian knowledge-graph clone. Markdown is one supported document format, not the product's organizing principle.
+- The workspace must provide format-appropriate viewers and editors rather than forcing every file through the Markdown editor. Office, PDF, HTML and other formats are part of the product direction; exact per-format editing, conversion and export capabilities must be specified separately and must not be implied before implementation.
 - Desktop/laptop is the primary work environment; mobile is mainly for quick notes and viewing.
-- CodeMirror 6 is the selected editor engine. Do not reintroduce CodeMirror 5 APIs or unpinned CDN dependencies.
+- CodeMirror 6 is the selected engine for the Markdown source editor, not a universal editor for every format. Do not reintroduce CodeMirror 5 APIs or unpinned CDN dependencies.
 - Keep exactly three editor modes: Source (Markdown source editing), Live (editable Source and rendered Preview side by side with bidirectional synchronized scrolling), and Preview (reading). Do not add a separate inline-formatting Live Preview mode.
 - Preserve per-tab editor state: text, selection/cursor and undo history; preserve scroll position where implemented. Switching documents must not leak history or content.
 - All opened tabs are global. A tab belonging to an inactive repository remains locally editable, but remote Git operations are disabled. Selecting a tab must not silently activate its repository.

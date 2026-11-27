@@ -9,14 +9,17 @@ This document records the repository's current implementation and approved direc
 
 ## Product
 
-GitNotes is a local-first workspace for notes and documents with Git version control and storage in user-owned GitHub repositories. The product direction is OneNote + Git. It is not primarily a collaborative Google Docs clone, an Obsidian graph, or a code IDE.
+GitNotes is a local-first, multi-format workspace inspired by OneNote Online, combined with Git version control and storage in user-owned GitHub repositories. It is not a Markdown-first editor, a collaborative Google Docs clone, an Obsidian graph or a code IDE. Markdown is one supported format among several.
+
+The intended workspace covers structured notes and pages plus format-appropriate handling of Office documents (DOCX, XLSX, PPTX), PDF, HTML and other file types. The product must not force all content through the Markdown editor: each format needs an appropriate viewer and, where in scope, editor. Exact per-format editing, conversion and export behavior remains to be specified; planned capabilities must not be described as implemented.
 
 Desktop/laptop is the primary work environment. Mobile is intended mainly for quick notes and reading. MD-Editor is a separate existing product; do not modify its repository or deployment as part of GitNotes work.
 
 ## Approved product and technical decisions
 
 - React, TypeScript and Vite.
-- CodeMirror 6 as the editor engine.
+- CodeMirror 6 as the Markdown source editor engine; it is not the universal editor for all document formats.
+- A multi-format document architecture with format-specific viewers/editors for Markdown, Office files, PDF, HTML and additional supported file types.
 - IndexedDB with Dexie for local persistence; database name is gitnote-local.
 - Vitest for unit tests and Playwright/Chromium for browser tests.
 - DocumentSource separates editor/document operations from storage and remote transport.
@@ -53,7 +56,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Search, settings and attachment controls are placeholders/disabled.
 - The current UI does not yet expose a navigable folder tree, even though the VFS storage layer exists.
 
-### Editor
+### Markdown editor
 
 - CodeMirror 6 with Source, Live and Preview modes. Long Markdown lines wrap in the editable Source pane in both Source and Live modes; horizontal scrolling is not required for ordinary prose.
 - Markdown language extension and basic editor facilities: line numbers, fold gutter, active line, bracket matching, close brackets, autocomplete and indentation.
@@ -113,7 +116,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [x] Fix all failures in the latest CI browser-test run.
 - [x] Keep project documentation synchronized with actual implementation.
 
-### Stage 1: editor core
+### Stage 1: Markdown editing experience
 
 - [ ] Language mode selected by file extension.
 - [x] Line wrapping in Source and Live, enabled by default through CodeMirror 6.
@@ -141,14 +144,18 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [ ] External images and safe handling.
 - [ ] Deleting a note and its owned attachments as one logical operation, with safeguards for shared references.
 
-### Stage 4: document viewers/adapters
+### Stage 4: multi-format document support
 
-- [ ] PDF viewer.
-- [ ] DOCX viewer.
-- [ ] XLSX viewer.
-- [ ] PPTX viewing support (not present in MD-Editor baseline).
-- [ ] Sandboxed HTML preview.
-- [ ] Lazy-load heavy viewers/adapters and add print/export behavior.
+The goal is format-appropriate experiences within one workspace, not a single Markdown editor with file previews bolted on.
+
+- [ ] Shared document-opening contract and format capability model (view, edit, import, export, print), without assuming every format supports every operation.
+- [ ] PDF viewer and defined PDF interaction scope.
+- [ ] DOCX viewer and editing strategy.
+- [ ] XLSX viewer and editing strategy.
+- [ ] PPTX viewing support and defined editing scope.
+- [ ] Sandboxed HTML preview and HTML editing strategy.
+- [ ] Format detection and dispatch by file type/MIME type.
+- [ ] Lazy-load heavy viewers/editors and define import/export behavior per format.
 
 ### Stage 5: GitHub integration
 
