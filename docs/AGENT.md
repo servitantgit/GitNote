@@ -67,6 +67,11 @@ Architecture quality is a continuous responsibility, not cleanup deferred until 
 - The agent must proactively propose worthwhile structural or preventive improvements when evidence from the current code supports them. Separate recommendations from the requested implementation scope; do not silently perform broad refactors or add abstractions without approval.
 - Do not optimize for hypothetical future requirements at the expense of current clarity. Choose the simplest design that safely supports approved product direction and known extension points.
 
+- Before implementing a capability that may already exist in the separate MD-Editor project, inspect its current source, tests and documented behavior. Reuse or adapt proven implementations and architectural patterns where they fit GitNotes; do not reinvent an equivalent feature merely because this is a separate repository. Treat MD-Editor as a reference implementation, not as permission to copy blindly: verify current behavior, dependencies, compatibility, security, licensing and fit with GitNotes' domain boundaries. Keep MD-Editor itself untouched.
+- Apply the same reuse-first rule to standard UI primitives and workflows: dialogs, confirmation dialogs, prompts, alerts, menus, tooltips, dropdowns and similar common components. Check what MD-Editor already uses and what suitable components are already installed in GitNotes. Prefer reusing or importing a mature, maintained, accessible component/library over writing a basic replacement from scratch.
+- Do not add a new UI dependency automatically. If no suitable existing component is available, assess a well-maintained library for compatibility, accessibility, bundle impact, licensing and API stability; explain the choice before adding it when the dependency meaningfully expands project scope.
+- Build a custom component only when the required behavior or product design is genuinely specific and cannot be expressed cleanly by an existing implementation. Keep product-specific logic separate from reusable UI primitives.
+
 ## 5. Testing and verification
 
 - Unit tests cover pure functions, path rules, domain state transitions, parsers and error cases.

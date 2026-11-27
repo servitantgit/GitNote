@@ -38,6 +38,8 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Avoid both oversized monoliths and excessive fragmentation into trivial helper files. Module boundaries should reflect meaningful responsibilities.
 - Evaluate dependency upgrades for breaking changes and downstream effects before adopting them; verify affected behavior with targeted regression tests.
 - Proactively identify and explain technical risks and preventive improvements. Recommendations do not authorize unapproved scope expansion or broad refactoring.
+- Reuse-first for capabilities: inspect the current MD-Editor implementation and tests before recreating a feature that may already exist there. Adapt proven code or patterns when appropriate, while checking compatibility, security, licensing and GitNotes' architecture; never modify the separate MD-Editor repository as part of GitNotes work.
+- Reuse-first for standard UI: prefer existing MD-Editor patterns or suitable components already installed in GitNotes for dialogs, confirmations, prompts, alerts, menus, tooltips, dropdowns and other common controls. If needed, prefer a mature, maintained and accessible importable library over a hand-built generic component. Evaluate any new dependency before proposing it; custom-build only genuinely product-specific behavior that existing components cannot reasonably cover.
 
 ## Current implementation
 
