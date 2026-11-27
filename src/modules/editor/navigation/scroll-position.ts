@@ -147,6 +147,11 @@ function previewPairs(
 }
 
 export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
+  // A mode switch can reflow wrapped lines and queue a browser scroll event
+  // before CodeMirror's measured restoration write runs. Do not treat that
+  // intermediate layout position as a user scroll.
+  let measurePending = false;
+
   return {
     id: 'editor',
     readPosition() {
@@ -165,6 +170,7 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
     scrollToPosition(position) {
       const normalized = normalizeScrollPosition(position, view.state.doc.lines);
       const lineNumber = normalized.line + 1;
+      measurePending = true;
       view.requestMeasure({
         key: view,
         read: () => {
@@ -176,12 +182,16 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
         },
         write: documentOffset => {
           view.scrollDOM.scrollTop = documentOffset;
+          measurePending = false;
         },
       });
     },
     subscribe(listener) {
-      view.scrollDOM.addEventListener('scroll', listener, { passive: true });
-      return () => view.scrollDOM.removeEventListener('scroll', listener);
+      const handleScroll = () => {
+        if (!measurePending) listener();
+      };
+      view.scrollDOM.addEventListener('scroll', handleScroll, { passive: true });
+      return () => view.scrollDOM.removeEventListener('scroll', handleScroll);
     },
   };
 }
