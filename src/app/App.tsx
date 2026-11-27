@@ -32,6 +32,7 @@ export function App() {
   const saveSequence = useRef(0);
   const saveTimer = useRef<number | null>(null);
   const dirtyNoteIds = useRef(new Set<string>());
+  const activeNoteIdRef = useRef<string | null>(null);
 
   const activeTab = useMemo(
     () => workspace?.tabs.find(tab => tab.id === workspace.activeTabId) ?? null,
@@ -41,6 +42,7 @@ export function App() {
     () => notes.find(note => note.id === activeTab?.noteId) ?? null,
     [notes, activeTab],
   );
+  activeNoteIdRef.current = activeNote?.id ?? null;
 
   const persistWorkspace = useCallback((manager: WorkspaceManager) => {
     const snapshot = manager.getSnapshot();
@@ -201,8 +203,13 @@ export function App() {
   }, [activeNote, notes, persistWorkspace]);
 
   const handleEditorContentChange = useCallback((content: string) => {
-    updateActiveNote({ content });
-  }, [updateActiveNote]);
+    const noteId = activeNoteIdRef.current;
+    if (!noteId) return;
+    dirtyNoteIds.current.add(noteId);
+    setNotes(current => current.map(note => note.id === noteId
+      ? { ...note, content, updatedAt: Date.now() }
+      : note));
+  }, []);
 
   const saveLabel = saveState === 'saving' ? 'Збереження…'
     : saveState === 'error' ? 'Помилка збереження'
