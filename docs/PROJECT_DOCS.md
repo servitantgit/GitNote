@@ -87,7 +87,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Removing a file/folder removes linked documents from local note storage.
 - Existing notes are migrated into a Notes directory with stable document IDs. Dexie schema version 6 adds a separate `binaryDocuments` table; the migration is additive and retains the existing gitnote-local database.
 - Binary workspace file storage preserves imported bytes as Blob records, separate from text notes. The sidebar can import supported Office and text/document formats into `Documents/`, list them, reopen them after reload, and remove them through the VFS.
-- `@p10node/office-engine` 0.18.0 (MIT) provides browser-local viewing/editing for DOCX, XLSX and PPTX, plus its documented legacy/OpenDocument and plain-text import formats. It runs in the browser; GitNotes persists edited output through the `onSave` Blob callback. This is a format-specific adapter, not the shared document-opening contract for every format. Attachment metadata shape exists, but note-scoped attachment ownership/lifecycle and UI remain unimplemented.
+- `@p10node/office-engine` 0.18.0 (MIT) provides browser-local viewing/editing for DOCX, XLSX and PPTX. GitNotes currently exposes DOCX, XLSX, PPTX, Markdown, HTML and SVG in its import picker and persists edited output through the `onSave` Blob callback. Legacy Office/OpenDocument and CSV/plain-text conversions are not exposed yet because the engine can save those formats under a different extension; GitNotes still needs atomic VFS path updates for format conversion. This is a format-specific adapter, not the shared document-opening contract for every format. Attachment metadata shape exists, but note-scoped attachment ownership/lifecycle and UI remain unimplemented.
 
 ### Workspace model
 
@@ -181,6 +181,7 @@ Only after editor and local workspace foundations are ready:
 
 - The visible UI is still a flat notes list, not the VFS tree.
 - The initial document import/open workflow currently lists binary documents separately from Markdown notes; the full navigable VFS tree and shared multi-format tab model are not implemented.
+- Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF viewing is not implemented.
 - Local VFS operations exist as a storage/domain service; they are not yet exposed as normal user-facing file manager workflows.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
 - Attachments are metadata-only at this stage.

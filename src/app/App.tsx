@@ -238,6 +238,10 @@ export function App() {
     if (!canLeaveBinaryDocument()) return;
     try {
       const name = validateWorkspaceName(file.name);
+      const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
+      if (!['.docx', '.xlsx', '.pptx', '.md', '.html', '.svg'].includes(extension)) {
+        throw new Error('Підтримуються формати DOCX, XLSX, PPTX, MD, HTML та SVG.');
+      }
       await ensureWorkspaceFolder('Documents');
       const now = Date.now();
       const path = `Documents/${name}`;
@@ -386,7 +390,7 @@ export function App() {
               <FileUp size={16} />
             </button>
           </div>
-          <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.doc,.xls,.ppt,.odt,.ods,.odp,.rtf,.csv,.tsv,.txt,.md,.html,.svg" aria-label="Файл для імпорту"
+          <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.md,.html,.svg" aria-label="Файл для імпорту"
             onChange={event => {
               const file = event.target.files?.[0];
               event.target.value = '';

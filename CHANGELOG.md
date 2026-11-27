@@ -5,7 +5,7 @@ All notable changes to GitNotes are documented here.
 ## [Unreleased]
 
 ### Added
-- Add local import, listing, opening and deletion for supported Office/document files, with browser-local editing and Blob saves through `@p10node/office-engine`.
+- Add local import, listing, opening and deletion for DOCX, XLSX, PPTX, Markdown, HTML and SVG, with browser-local editing and Blob saves through `@p10node/office-engine`.
 - Add Chromium coverage for importing a document, verifying its Blob-backed VFS record and reopening it after reload.
 - Blob-preserving IndexedDB storage for binary workspace documents, separate from text notes, with transactional VFS registration and lifecycle updates.
 - Chromium regression coverage for binary Blob persistence, update, VFS rename and recursive deletion.

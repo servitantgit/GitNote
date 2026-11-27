@@ -16,11 +16,11 @@ test('imports a local document, opens it and restores its Blob after reload', as
   await page.getByRole('button', { name: 'Імпортувати документ' }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles({
-    name: 'Browser import.txt',
-    mimeType: 'text/plain',
+    name: 'Browser import.md',
+    mimeType: 'text/markdown',
     buffer: Buffer.from('Imported text remains binary-backed'),
   });
-  await expect(page.getByRole('button', { name: 'Browser import.txt' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Browser import.md' })).toBeVisible();
   await expect(page.getByTestId('office-document-viewer')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 
@@ -35,8 +35,8 @@ test('imports a local document, opens it and restores its Blob after reload', as
       const documentsRequest = transaction.objectStore('binaryDocuments').getAll();
       const nodesRequest = transaction.objectStore('fileNodes').getAll();
       transaction.oncomplete = () => {
-        const document = documentsRequest.result.find((item: { title: string }) => item.title === 'Browser import.txt');
-        const node = nodesRequest.result.find((item: { path: string }) => item.path === 'Documents/Browser import.txt');
+        const document = documentsRequest.result.find((item: { title: string }) => item.title === 'Browser import.md');
+        const node = nodesRequest.result.find((item: { path: string }) => item.path === 'Documents/Browser import.md');
         if (!document) {
           resolve({ document: undefined, node });
           return;
@@ -48,14 +48,14 @@ test('imports a local document, opens it and restores its Blob after reload', as
       transaction.onerror = () => reject(transaction.error);
     });
   });
-  expect(stored.document?.path).toBe('Documents/Browser import.txt');
+  expect(stored.document?.path).toBe('Documents/Browser import.md');
   expect(stored.document?.size).toBe(Buffer.byteLength('Imported text remains binary-backed'));
   expect(stored.document?.contentText).toBe('Imported text remains binary-backed');
   expect(stored.node?.documentId).toBeTruthy();
 
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Browser import.txt' })).toBeVisible();
-  await page.getByRole('button', { name: 'Browser import.txt' }).click();
+  await expect(page.getByRole('button', { name: 'Browser import.md' })).toBeVisible();
+  await page.getByRole('button', { name: 'Browser import.md' }).click();
   await expect(page.getByTestId('office-document-viewer')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
