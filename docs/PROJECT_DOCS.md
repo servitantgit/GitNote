@@ -92,7 +92,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [x] Add folder creation, atomic document-plus-file creation, file registration, rename, move and recursive delete operations.
 - [x] Preserve CodeMirror EditorState per document tab.
 - [x] Use Lezer syntax-tree information to protect code ranges in Live Preview.
-- [ ] Verify and complete migration coverage for all pre-VFS IndexedDB states.
+- [x] Add Chromium migration coverage for IndexedDB schema versions 1–4, including preservation of drafts, notes, workspace snapshots, sync metadata, duplicate paths and unsafe legacy paths.
 - [ ] Verify per-tab cursor, selection, scroll and undo history in Chromium.
 - [ ] Add/verify visual browser regression coverage for Source and Live Preview.
 - [ ] Fix all failures in the latest CI browser-test run.
@@ -157,4 +157,4 @@ Only after editor and local workspace foundations are ready:
 - Attachments are metadata-only at this stage.
 - No remote GitHub repository manager, OAuth, GitHub API integration, commits, pushes or remote conflict UI exists.
 - Do not claim roadmap items are implemented until source, tests and user-visible UI confirm them.
-- CI run `45925386493` on commit `060a43a` passed unit tests and production build but reported 2 failed, 2 flaky and 6 passed Chromium tests. Trace review showed several browser tests began typing immediately after clicking the asynchronous Create Note action, before the new tab became active. This caused input to land in the previous document and made the editor-state result misleading. Browser tests now wait for the new tab before editing. New note and VFS file creation are also now one IndexedDB transaction to prevent orphaned records. These changes remain unverified until all CI jobs pass on the new commit.
+- CI run `45925386493` on commit `060a43a` passed unit tests and production build but reported 2 failed, 2 flaky and 6 passed Chromium tests. Trace review showed several browser tests began typing immediately after clicking the asynchronous Create Note action, before the new tab became active. Browser tests now wait for the new tab before editing. New note and VFS file creation are also one IndexedDB transaction. CI run `45925981117` on commit `a6f51de` passed all three required jobs (unit tests, Chromium browser tests and production build).

@@ -1,0 +1,236 @@
+import { expect, test, type Page } from '@playwright/test';
+
+const databaseName = 'gitnote-local';
+const repositoryId = 'local-workspace';
+
+async function seedLegacyDatabase(
+  page: Page,
+  version: 1 | 2 | 3 | 4,
+  data: {
+    notes?: Array<Record<string, unknown>>;
+    draft?: Record<string, unknown>;
+    workspace?: Record<string, unknown>;
+  } = {},
+) {
+  await page.goto('about:blank');
+  await page.evaluate(({ databaseName, version, data }) => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(databaseName, version);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      const transaction = request.transaction!;
+      const drafts = db.createObjectStore('drafts', { keyPath: 'id' });
+      for (const index of ['repositoryId', 'path', 'updatedAt']) drafts.createIndex(index, index);
+
+      if (version >= 2) {
+        const notes = db.createObjectStore('notes', { keyPath: 'id' });
+        for (const index of ['repositoryId', 'title', 'createdAt', 'updatedAt']) notes.createIndex(index, index);
+        if (version >= 4) {
+          notes.createIndex('path', 'path');
+          notes.createIndex('syncState', 'syncState');
+        }
+        for (const note of data.notes ?? []) notes.add(note);
+      }
+
+      if (version >= 3) {
+        const workspaces = db.createObjectStore('workspaces', { keyPath: 'id' });
+        workspaces.createIndex('updatedAt', 'updatedAt');
+        if (data.workspace) workspaces.add(data.workspace);
+      }
+      if (data.draft) drafts.add(data.draft);
+    };
+    request.onsuccess = () => {
+      request.result.close();
+      resolve();
+    };
+    request.onerror = () => reject(request.error);
+  }), { databaseName, version, data });
+}
+
+async function readDatabase(page: Page) {
+  return page.evaluate(databaseName => new Promise<{
+    drafts: Array<Record<string, unknown>>;
+    notes: Array<Record<string, unknown>>;
+    nodes: Array<Record<string, unknown>>;
+    workspace?: Record<string, unknown>;
+  }>((resolve, reject) => {
+    const request = indexedDB.open(databaseName);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const stores = ['drafts', 'notes', 'fileNodes', 'workspaces'].filter(name => db.objectStoreNames.contains(name));
+      const transaction = db.transaction(stores, 'readonly');
+      const result: {
+        drafts: Array<Record<string, unknown>>;
+        notes: Array<Record<string, unknown>>;
+        nodes: Array<Record<string, unknown>>;
+        workspace?: Record<string, unknown>;
+      } = { drafts: [], notes: [], nodes: [] };
+      if (stores.includes('drafts')) transaction.objectStore('drafts').getAll().onsuccess = event => {
+        result.drafts = (event.target as IDBRequest).result;
+      };
+      if (stores.includes('notes')) transaction.objectStore('notes').getAll().onsuccess = event => {
+        result.notes = (event.target as IDBRequest).result;
+      };
+      if (stores.includes('fileNodes')) transaction.objectStore('fileNodes').getAll().onsuccess = event => {
+        result.nodes = (event.target as IDBRequest).result;
+      };
+      if (stores.includes('workspaces')) transaction.objectStore('workspaces').get('default').onsuccess = event => {
+        result.workspace = (event.target as IDBRequest).result;
+      };
+      transaction.oncomplete = () => {
+        db.close();
+        resolve(result);
+      };
+      transaction.onerror = () => reject(transaction.error);
+    };
+  }), databaseName);
+}
+
+test('upgrades a version 1 database without losing existing drafts', async ({ page }) => {
+  await seedLegacyDatabase(page, 1, {
+    draft: {
+      id: 'legacy-draft-v1',
+      repositoryId,
+      path: 'Notes/draft.md',
+      content: 'Draft from schema version 1',
+      updatedAt: 100,
+    },
+  });
+
+  await page.goto('/');
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
+  const stored = await readDatabase(page);
+  expect(stored.drafts).toContainEqual(expect.objectContaining({
+    id: 'legacy-draft-v1',
+    content: 'Draft from schema version 1',
+  }));
+  expect(stored.notes.length).toBe(1);
+  expect(stored.nodes).toContainEqual(expect.objectContaining({ kind: 'folder', path: 'Notes' }));
+});
+
+test('upgrades version 2 notes into VFS files without changing document IDs or content', async ({ page }) => {
+  await seedLegacyDatabase(page, 2, {
+    notes: [{
+      id: 'legacy-note-v2',
+      repositoryId,
+      title: 'Legacy note',
+      content: 'Content from schema version 2',
+      createdAt: 200,
+      updatedAt: 300,
+    }],
+  });
+
+  await page.goto('/');
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Legacy note');
+  const stored = await readDatabase(page);
+  const note = stored.notes.find(item => item.id === 'legacy-note-v2');
+  expect(note).toMatchObject({
+    id: 'legacy-note-v2',
+    content: 'Content from schema version 2',
+    path: 'Notes/legacy-note-legacy-n.md',
+    syncState: 'local',
+  });
+  expect(stored.nodes).toContainEqual(expect.objectContaining({
+    repositoryId,
+    path: note?.path,
+    kind: 'file',
+    documentId: 'legacy-note-v2',
+  }));
+});
+
+test('upgrades version 3 while preserving the saved workspace and open tab', async ({ page }) => {
+  const noteId = 'legacy-note-v3';
+  const snapshot = {
+    repositories: [{ id: repositoryId, owner: 'local', name: 'Legacy workspace', defaultBranch: 'main' }],
+    tabs: [{ id: `note:${noteId}`, repositoryId, branch: 'main', noteId, title: 'Workspace note', openedAt: 400 }],
+    activeRepositoryId: repositoryId,
+    activeTabId: `note:${noteId}`,
+  };
+  await seedLegacyDatabase(page, 3, {
+    notes: [{
+      id: noteId,
+      repositoryId,
+      title: 'Workspace note',
+      content: 'Workspace state must survive migration',
+      createdAt: 200,
+      updatedAt: 300,
+    }],
+    workspace: { id: 'default', snapshot, updatedAt: 400 },
+  });
+
+  await page.goto('/');
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Workspace note');
+  await expect(page.getByText('Legacy workspace')).toBeVisible();
+  const stored = await readDatabase(page);
+  expect(stored.workspace?.snapshot).toEqual(snapshot);
+  expect(stored.nodes).toContainEqual(expect.objectContaining({
+    path: 'Notes/workspace-note-legacy-note-v3.md',
+    documentId: noteId,
+    kind: 'file',
+  }));
+});
+
+test('upgrades version 4 paths safely, resolves duplicate paths and preserves sync metadata', async ({ page }) => {
+  await seedLegacyDatabase(page, 4, {
+    notes: [
+      {
+        id: 'legacy-v4-a',
+        repositoryId,
+        title: 'Legacy A',
+        content: 'First document',
+        path: 'Archive/legacy.md',
+        syncState: 'dirty',
+        baseSha: 'base-sha-a',
+        createdAt: 100,
+        updatedAt: 200,
+      },
+      {
+        id: 'legacy-v4-b',
+        repositoryId,
+        title: 'Legacy B',
+        content: 'Second document',
+        path: 'Archive/legacy.md',
+        syncState: 'local',
+        createdAt: 110,
+        updatedAt: 210,
+      },
+      {
+        id: 'legacy-v4-c',
+        repositoryId,
+        title: 'Traversal',
+        content: 'Unsafe legacy path',
+        path: 'Notes/../../outside.md',
+        syncState: 'conflict',
+        baseSha: 'base-sha-c',
+        createdAt: 120,
+        updatedAt: 220,
+      },
+    ],
+  });
+
+  await page.goto('/');
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Legacy A');
+  const stored = await readDatabase(page);
+  const migrated = stored.notes.filter(item => String(item.id).startsWith('legacy-v4-'));
+  expect(migrated).toHaveLength(3);
+  const paths = migrated.map(item => String(item.path));
+  expect(new Set(paths).size).toBe(3);
+  expect(paths).toContain('Archive/legacy.md');
+  expect(paths.every(path => !path.split('/').includes('..'))).toBe(true);
+  expect(migrated.find(item => item.id === 'legacy-v4-a')).toMatchObject({
+    syncState: 'dirty',
+    baseSha: 'base-sha-a',
+  });
+  expect(migrated.find(item => item.id === 'legacy-v4-c')).toMatchObject({
+    syncState: 'conflict',
+    baseSha: 'base-sha-c',
+  });
+  for (const note of migrated) {
+    expect(stored.nodes).toContainEqual(expect.objectContaining({
+      repositoryId,
+      path: note.path,
+      kind: 'file',
+      documentId: note.id,
+    }));
+  }
+});

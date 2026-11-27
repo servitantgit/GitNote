@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { WorkspaceSnapshot } from '../../core/domain/workspace';
 import type { DocumentRecord } from '../../core/domain/document-source';
-import type { WorkspaceFileNode } from '../../core/domain/workspace-file-system';
+import { normalizeWorkspacePath, type WorkspaceFileNode } from '../../core/domain/workspace-file-system';
 
 export interface LocalDraft {
   id: string;
@@ -62,12 +62,26 @@ class GitNotesDatabase extends Dexie {
         const repositoryId = note.repositoryId;
         const title = typeof note.title === 'string' && note.title.trim() ? note.title.trim() : 'Без назви';
         const slug = title.normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').toLowerCase() || 'note';
-        let path = typeof note.path === 'string' && note.path.trim()
-          ? note.path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+        const rawPath = typeof note.path === 'string' && note.path.trim()
+          ? note.path
           : `Notes/${slug}-${String(note.id).slice(0, 8)}.md`;
-        const key = `${repositoryId}:${path}`;
+        let path: string;
+        try {
+          path = normalizeWorkspacePath(rawPath);
+          if (!path) throw new Error('Empty document path.');
+        } catch {
+          path = `Notes/${slug}-${String(note.id)}.md`;
+        }
+        let key = `${repositoryId}:${path}`;
         if (occupied.has(key)) path = `Notes/${slug}-${String(note.id)}.md`;
-        occupied.add(`${repositoryId}:${path}`);
+        key = `${repositoryId}:${path}`;
+        let collisionSuffix = 1;
+        while (occupied.has(key)) {
+          path = `Notes/${slug}-${String(note.id)}-${collisionSuffix}.md`;
+          key = `${repositoryId}:${path}`;
+          collisionSuffix += 1;
+        }
+        occupied.add(key);
 
         const segments = path.split('/');
         let parentPath = '';
