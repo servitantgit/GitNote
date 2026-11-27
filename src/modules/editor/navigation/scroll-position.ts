@@ -55,26 +55,39 @@ function mapValue(
   return last[to];
 }
 
-function markdownAnchorLines(content: string): { headings: number[]; images: number[] } {
+function markdownAnchorLines(content: string): {
+  headings: number[];
+  images: number[];
+  paragraphs: Array<{ start: number; end: number }>;
+} {
   const headings: number[] = [];
   const images: number[] = [];
+  const paragraphs: Array<{ start: number; end: number }> = [];
   const tree = markdownLanguage.parser.parse(content);
 
   tree.iterate({
     enter(node) {
-      if (!node.name.includes('Heading') && node.name !== 'Image') return;
-      const line = content.slice(0, node.from).split(String.fromCharCode(10)).length - 1;
-      if (node.name.includes('Heading')) headings.push(line);
-      else images.push(line);
+      const startLine = content.slice(0, node.from).split(String.fromCharCode(10)).length - 1;
+      if (node.name === 'Paragraph') {
+        // Paragraph end positions are exclusive. Add one so the bottom edge
+        // maps to the position immediately after its final source line.
+        const endLine = content.slice(0, node.to).split(String.fromCharCode(10)).length;
+        paragraphs.push({ start: startLine, end: endLine });
+      } else if (node.name.includes('Heading')) {
+        headings.push(startLine);
+      } else if (node.name === 'Image') {
+        images.push(startLine);
+      }
     },
   });
 
-  return { headings, images };
+  return { headings, images, paragraphs };
 }
+
 function previewPairs(
   element: HTMLElement,
   lineCount: number,
-  source: { headings: number[]; images: number[] },
+  source: { headings: number[]; images: number[]; paragraphs: Array<{ start: number; end: number }> },
 ) {
   const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
   if (maxScroll <= 0) return [{ document: 0, preview: 0 }, { document: lineCount, preview: 0 }];
@@ -84,6 +97,18 @@ function previewPairs(
     { document: 0, preview: 0 },
     { document: lineCount, preview: maxScroll },
   ];
+  const paragraphs = element.querySelectorAll<HTMLElement>('p');
+  if (paragraphs.length === source.paragraphs.length) {
+    paragraphs.forEach((paragraph, index) => {
+      const anchor = source.paragraphs[index];
+      const rect = paragraph.getBoundingClientRect();
+      anchors.push(
+        { document: anchor.start, preview: element.scrollTop + rect.top - bounds.top },
+        { document: anchor.end, preview: element.scrollTop + rect.bottom - bounds.top },
+      );
+    });
+  }
+
   const headings = element.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
   if (headings.length === source.headings.length) {
     headings.forEach((heading, index) => {

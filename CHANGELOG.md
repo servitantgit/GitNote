@@ -12,6 +12,7 @@ All notable changes to GitNotes are documented here.
 - Chromium regression coverage for Live layout, live rendering and bidirectional scroll synchronization.
 
 ### Fixed
+- Preview scroll mapping now uses rendered paragraph boundaries as well as heading and image anchors, preventing drift in long heading-free Markdown documents.
 - CodeMirror scroll restoration now applies each synchronized position in one measured write, avoiding an intermediate scroll event that could cancel small Preview wheel movements.
 
 ### Changed
