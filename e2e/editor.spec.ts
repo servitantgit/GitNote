@@ -145,15 +145,11 @@ test('restores one logical scroll position per note across Source and Preview', 
 
   const content = Array.from({ length: 80 }, (_, index) =>
     `## Section ${index + 1} with enough text to wrap across multiple visual rows in the narrower Live source pane and remain a distinct heading in the rendered preview.`,
-  ).join('\\n');
+  ).join('\n');
   const editor = page.locator('.cm-content');
   await editor.fill(content);
 
   type LogicalPosition = { line: number; offset: number };
-  type ScrollDebugState = {
-    coordinator: LogicalPosition;
-    source: LogicalPosition | null;
-  };
   const readScrollState = () => page.evaluate(() => {
     const hook = (window as Window & {
       __gitnoteScrollDebug?: {
