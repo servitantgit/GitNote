@@ -57,6 +57,7 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
         throw new Error(`Path already exists: ${normalized}`);
       }
       const existing = nodes.find(node => node.documentId === documentId);
+      if (existing && existing.path !== normalized) await database.fileNodes.delete(existing.id);
       const now = Date.now();
       const node: WorkspaceFileNode = {
         id: existing?.id ?? makeId(), repositoryId, path: normalized, parentPath: parent,

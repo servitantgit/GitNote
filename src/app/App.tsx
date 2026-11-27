@@ -5,6 +5,7 @@ import type { EditorMode } from '../modules/editor/types';
 import { workspaceStore } from '../infrastructure/storage/database';
 import type { DocumentRecord } from '../core/domain/document-source';
 import { documentSource } from '../infrastructure/storage/local-document-source';
+import { workspaceFileSystem } from '../infrastructure/storage/local-workspace-file-system';
 import { WorkspaceManager, type WorkspaceSnapshot } from '../core/domain/workspace';
 import './app.css';
 
@@ -16,7 +17,8 @@ type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
 function makeNote(title = 'Без назви', content = ''): DocumentRecord {
   const now = Date.now();
-  return { id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title, content, syncState: 'local', createdAt: now, updatedAt: now };
+  const id = crypto.randomUUID();
+  return { id, repositoryId: LOCAL_REPOSITORY_ID, title, content, path: `Notes/${id}.md`, syncState: 'local', createdAt: now, updatedAt: now };
 }
 
 function tabForNote(note: DocumentRecord) {
@@ -70,6 +72,10 @@ export function App() {
           documentSource.list(),
           workspaceStore.get(),
         ]);
+        const rootNodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
+        if (!rootNodes.some(node => node.kind === 'folder' && node.name === 'Notes')) {
+          await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, '', 'Notes');
+        }
         let storedNotes = await Promise.all(documentMetas.map(async meta => ({
           ...meta,
           ...await documentSource.read(meta.id),
@@ -80,6 +86,7 @@ export function App() {
         if (nextNotes.length === 0) {
           const welcomeNote = makeNote('Моя перша нотатка', INITIAL_CONTENT);
           await documentSource.create(welcomeNote, welcomeNote.content);
+          await workspaceFileSystem.registerDocument(welcomeNote.repositoryId, welcomeNote.id, welcomeNote.path!);
           nextNotes = [welcomeNote];
         }
 
@@ -176,6 +183,7 @@ export function App() {
     const note = makeNote();
     try {
       await documentSource.create(note, note.content);
+      await workspaceFileSystem.registerDocument(note.repositoryId, note.id, note.path!);
       setNotes(current => [note, ...current]);
       openNote(note);
       setMode('source');
@@ -203,7 +211,8 @@ export function App() {
       if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
       saveTimer.current = null;
       saveSequence.current += 1;
-      await documentSource.remove(activeNote.id);
+      if (activeNote.path) await workspaceFileSystem.remove(activeNote.repositoryId, activeNote.path);
+      else await documentSource.remove(activeNote.id);
       dirtyNoteIds.current.delete(activeNote.id);
       dirtyTitleNoteIds.current.delete(activeNote.id);
       const manager = managerRef.current;
@@ -212,6 +221,7 @@ export function App() {
       if (remaining.length === 0) {
         const replacement = makeNote();
         await documentSource.create(replacement, replacement.content);
+        await workspaceFileSystem.registerDocument(replacement.repositoryId, replacement.id, replacement.path!);
         setNotes([replacement]);
         manager?.openTab(tabForNote(replacement));
       } else {

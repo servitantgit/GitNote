@@ -9,13 +9,15 @@ GitNotes is a separate application. MD-Editor must remain unchanged and continue
 | Autosave and draft store | Preserve local-first behavior with IndexedDB/Dexie behind a document-source contract. | `DocumentSource` contract and IndexedDB implementation integrated; debounced autosave remains local-only |
 | Working Tree and batch commits | Expand into a repository-scoped operation journal supporting text and binary changes. | Initial in-memory domain model only; no Git transport |
 | Tabs and repository switching | Keep tabs globally open; inactive-repository tabs remain locally editable but cannot sync/commit/push. | Workspace manager integrated with UI and IndexedDB for current local workspace; remote repository loading and switching UI not yet implemented |
-| File operations | Stage create, rename, move, delete and attachment changes locally; commit explicit batches atomically. | Note CRUD is local-only; repository file operations not implemented |
+| File operations | Stage create, rename, move, delete and attachment changes locally; commit explicit batches atomically. | Local VFS contract and IndexedDB adapter implemented for folders/files, rename, move and recursive delete; tree UI and remote Git operations remain future work |
 | EasyMDE / CodeMirror 5 | Replace with CodeMirror 6. | CodeMirror 6 integrated |
 
 ## Implemented in the current foundation
 
 - Local note creation, selection, renaming, deletion and debounced autosave.
 - Documents read and written through the transport-independent `DocumentSource` contract, currently backed only by IndexedDB/Dexie.
+- Repository-scoped local VFS with folder/file nodes, safe relative paths, and atomic rename/move path updates in IndexedDB.
+- Existing notes migrated into the local `Notes` folder without changing their document IDs.
 - Document metadata includes repository-relative path, base blob SHA and explicit local/clean/dirty/conflict state. Existing records are migrated to `local`.
 - Attachment metadata defines paths relative to the parent note directory; attachment storage and UI remain future work.
 - Global open document tabs with selection and closing.

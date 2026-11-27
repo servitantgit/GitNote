@@ -12,8 +12,9 @@
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
 - `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview and Preview modes, Markdown formatting commands, selection-aware editing and reading statistics.
-- `src/infrastructure/storage`: Dexie database, local document-source implementation, draft and workspace stores.
+- `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
+- `src/core/domain/workspace-file-system.ts`: repository-scoped virtual file tree contract, path validation and path helpers.
 - `src/core/domain`: repository capabilities, globally scoped workspace tabs and Working Tree model.
 - `e2e`: Playwright browser-level regression tests.
 
@@ -53,7 +54,7 @@ Every feature change must include regression coverage appropriate to its behavio
 
 ## Local persistence and compatibility
 
-Documents are stored in IndexedDB in the `notes` table through `LocalIndexedDbDocumentSource`. Workspace snapshots are stored in the `workspaces` table. The Dexie database name remains `gitnote-local` to preserve data created by the previous GitNote foundation. Schema version 4 adds document path and synchronization-state indexes and backfills existing notes as `local`; it does not recreate the existing notes store.
+Documents are stored in IndexedDB in the `notes` table through `LocalIndexedDbDocumentSource`. File and folder nodes are stored in `fileNodes` through `LocalWorkspaceFileSystem`; file nodes reference their document by ID, and document paths are repository-relative. Folder rename/move updates descendant paths and linked document metadata in one IndexedDB transaction. Removing a file or folder removes its linked local documents. Workspace snapshots are stored in the `workspaces` table. The Dexie database name remains `gitnote-local` to preserve data created by the previous GitNote foundation. Schema version 4 adds document path and synchronization-state indexes and backfills existing notes as `local`; schema version 5 adds the `fileNodes` store and migrates existing notes into a `Notes` folder with stable document IDs. These upgrades do not recreate the existing notes store.
 
 Attachment metadata includes a path relative to the directory containing its parent note. The attachment storage/lifecycle module is not implemented yet; no attachment files are being written by this change.
 
