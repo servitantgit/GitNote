@@ -73,6 +73,9 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Document domain and storage
 
+`src/core/domain/document-format.ts` classifies Markdown, HTML, DOCX, XLSX, PPTX, PDF, text, CSV, common image/audio/video formats and archives. Recognized filename extensions take precedence over MIME metadata; MIME lookup is used when the filename has no recognized extension. This is a detection contract only and does not imply that a viewer/editor for every listed format is implemented.
+
+
 - `src/core/domain/document-source.ts` defines DocumentSource, document metadata/records, attachment metadata and sync-state types.
 - `src/infrastructure/storage/local-document-source.ts` implements local document CRUD through Dexie.
 - Document metadata includes repository ID, optional relative path, optional baseSha, and sync state: local, clean, dirty or conflict.
@@ -155,7 +158,7 @@ The goal is format-appropriate experiences within one workspace, not a single Ma
 - [ ] XLSX viewer and editing strategy.
 - [ ] PPTX viewing support and defined editing scope.
 - [ ] Sandboxed HTML preview and HTML editing strategy.
-- [ ] Format detection and dispatch by file type/MIME type.
+- [x] Initial filename/MIME format detection for common text, Office, PDF, media and archive types. Format-specific dispatch remains planned.
 - [ ] Lazy-load heavy viewers/editors and define import/export behavior per format.
 
 ### Stage 5: GitHub integration
