@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add local import, listing, opening and deletion for supported Office/document files, with browser-local editing and Blob saves through `@p10node/office-engine`.
+- Add Chromium coverage for importing a document, verifying its Blob-backed VFS record and reopening it after reload.
+
 All notable changes to GitNotes are documented here.
 
 ## [Unreleased]

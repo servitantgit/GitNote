@@ -1,19 +1,33 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorState } from '@codemirror/state';
 import type { DocumentScrollPosition } from '../modules/editor/navigation/scroll-position';
-import { Files, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
+import { Files, FileText, FileUp, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
 import { workspaceStore } from '../infrastructure/storage/database';
-import type { DocumentRecord } from '../core/domain/document-source';
-import { documentSource } from '../infrastructure/storage/local-document-source';
+import type { BinaryDocumentRecord, DocumentRecord } from '../core/domain/document-source';
+import { binaryDocumentSource, documentSource } from '../infrastructure/storage/local-document-source';
 import { workspaceFileSystem } from '../infrastructure/storage/local-workspace-file-system';
+import { validateWorkspaceName } from '../core/domain/workspace-file-system';
 import { WorkspaceManager, type WorkspaceSnapshot } from '../core/domain/workspace';
 import './app.css';
 
 const LOCAL_REPOSITORY_ID = 'local-workspace';
 const LOCAL_REPOSITORY = { id: LOCAL_REPOSITORY_ID, owner: 'local', name: 'Локальний робочий простір', defaultBranch: 'main' };
 const INITIAL_CONTENT = '# Моя перша нотатка\n\nGitNotes — робочий простір для нотаток і документів із Git-контролем версій.\n\n- Source: редагування Markdown\n- Live: Source і Preview поруч із синхронізованою прокруткою\n- Preview: режим читання';
+
+async function ensureWorkspaceFolder(name: string): Promise<void> {
+  const nodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
+  if (nodes.some(node => node.kind === 'folder' && node.name === name)) return;
+  try {
+    await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, '', name);
+  } catch (error) {
+    const refreshed = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
+    if (!refreshed.some(node => node.kind === 'folder' && node.name === name)) throw error;
+  }
+}
+
+const OfficeDocumentViewer = lazy(() => import('../modules/documents/OfficeDocumentViewer').then(module => ({ default: module.OfficeDocumentViewer })));
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
@@ -30,6 +44,11 @@ function tabForNote(note: DocumentRecord) {
 export function App() {
   const [mode, setMode] = useState<EditorMode>('source');
   const [notes, setNotes] = useState<DocumentRecord[]>([]);
+  const [binaryDocuments, setBinaryDocuments] = useState<Omit<BinaryDocumentRecord, 'content'>[]>([]);
+  const [activeBinaryDocument, setActiveBinaryDocument] = useState<BinaryDocumentRecord | null>(null);
+  const [binaryDirty, setBinaryDirty] = useState(false);
+  const [binarySaveState, setBinarySaveState] = useState<SaveState>('saved');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('loading');
@@ -61,35 +80,32 @@ export function App() {
     });
   }, []);
 
-  const openNote = useCallback((note: DocumentRecord) => {
+  const canLeaveBinaryDocument = useCallback((nextDocumentId?: string) => {
+    if (!activeBinaryDocument || activeBinaryDocument.id === nextDocumentId || !binaryDirty) return true;
+    return window.confirm('Документ має незбережені зміни. Відкрити інший документ і відкинути їх?');
+  }, [activeBinaryDocument, binaryDirty]);
+
+  const openNote = useCallback((note: DocumentRecord, confirmedSwitch = false) => {
+    if (!confirmedSwitch && !canLeaveBinaryDocument()) return;
+    setActiveBinaryDocument(null);
+    setBinaryDirty(false);
+    setBinarySaveState('saved');
     const manager = managerRef.current;
     if (!manager) return;
     manager.openTab(tabForNote(note));
     persistWorkspace(manager);
-  }, [persistWorkspace]);
+  }, [canLeaveBinaryDocument, persistWorkspace]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadWorkspace() {
       try {
-        const [documentMetas, savedWorkspace] = await Promise.all([
+        const [documentMetas, savedWorkspace, binaryMetas] = await Promise.all([
           documentSource.list(),
           workspaceStore.get(),
+          binaryDocumentSource.list(),
         ]);
-        const rootNodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
-        if (!rootNodes.some(node => node.kind === 'folder' && node.name === 'Notes')) {
-          try {
-            await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, '', 'Notes');
-          } catch (error) {
-            // React StrictMode can run this initialization effect twice. If another
-            // invocation created Notes first, treat that as successful initialization.
-            const refreshedRootNodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
-            const notesFolderExists = refreshedRootNodes.some(
-              node => node.kind === 'folder' && node.name === 'Notes',
-            );
-            if (!notesFolderExists) throw error;
-          }
-        }
+        await Promise.all(['Notes', 'Documents'].map(ensureWorkspaceFolder));
         let storedNotes = await Promise.all(documentMetas.map(async meta => ({
           ...meta,
           ...await documentSource.read(meta.id),
@@ -118,6 +134,7 @@ export function App() {
 
         managerRef.current = manager;
         setNotes(nextNotes);
+        setBinaryDocuments(binaryMetas);
         setWorkspace(manager.getSnapshot());
         await workspaceStore.save(manager.getSnapshot());
         if (!cancelled) setSaveState('saved');
@@ -192,17 +209,88 @@ export function App() {
   }, [activeNote, persistWorkspace]);
 
   const createNote = useCallback(async () => {
-    if (saveState === 'loading') return;
+    if (saveState === 'loading' || !canLeaveBinaryDocument()) return;
     const note = makeNote();
     try {
       await workspaceFileSystem.createDocument(note, note.path!);
       setNotes(current => [note, ...current]);
-      openNote(note);
+      openNote(note, true);
       setMode('source');
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося створити нотатку.');
     }
-  }, [openNote, saveState]);
+  }, [canLeaveBinaryDocument, openNote, saveState]);
+
+  const openBinaryDocument = useCallback(async (id: string) => {
+    if (activeBinaryDocument?.id === id || !canLeaveBinaryDocument(id)) return;
+    try {
+      const document = await binaryDocumentSource.read(id);
+      setActiveBinaryDocument(document);
+      setBinaryDirty(false);
+      setBinarySaveState('saved');
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося відкрити документ.');
+    }
+  }, [activeBinaryDocument, canLeaveBinaryDocument]);
+
+  const importBinaryDocument = useCallback(async (file: File) => {
+    if (!canLeaveBinaryDocument()) return;
+    try {
+      const name = validateWorkspaceName(file.name);
+      await ensureWorkspaceFolder('Documents');
+      const now = Date.now();
+      const path = `Documents/${name}`;
+      const document: BinaryDocumentRecord = {
+        id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title: name, path,
+        content: file, mediaType: file.type || 'application/octet-stream', size: file.size,
+        syncState: 'local', createdAt: now, updatedAt: now,
+      };
+      await workspaceFileSystem.createBinaryDocument(document, path);
+      const [metas, stored] = await Promise.all([binaryDocumentSource.list(), binaryDocumentSource.read(document.id)]);
+      setBinaryDocuments(metas);
+      setActiveBinaryDocument(stored);
+      setBinaryDirty(false);
+      setBinarySaveState('saved');
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося імпортувати документ.');
+    }
+  }, [canLeaveBinaryDocument]);
+
+  const saveBinaryDocument = useCallback(async (content: Blob) => {
+    if (!activeBinaryDocument) return;
+    setBinarySaveState('saving');
+    try {
+      await binaryDocumentSource.write(activeBinaryDocument.id, content);
+      const [stored, metas] = await Promise.all([binaryDocumentSource.read(activeBinaryDocument.id), binaryDocumentSource.list()]);
+      setActiveBinaryDocument(stored);
+      setBinaryDocuments(metas);
+      setBinaryDirty(false);
+      setBinarySaveState('saved');
+      setStorageError(null);
+    } catch (error) {
+      setBinarySaveState('error');
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося зберегти документ.');
+      throw error;
+    }
+  }, [activeBinaryDocument]);
+
+  const deleteActiveBinaryDocument = useCallback(async () => {
+    if (!activeBinaryDocument) return;
+    if (!window.confirm(`Видалити документ «${activeBinaryDocument.title}» з локального сховища?`)) return;
+    try {
+      if (activeBinaryDocument.path) await workspaceFileSystem.remove(activeBinaryDocument.repositoryId, activeBinaryDocument.path);
+      else await binaryDocumentSource.remove(activeBinaryDocument.id);
+      setBinaryDocuments(await binaryDocumentSource.list());
+      setActiveBinaryDocument(null);
+      setBinaryDirty(false);
+      setBinarySaveState('saved');
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося видалити документ.');
+    }
+  }, [activeBinaryDocument]);
 
   const closeTab = useCallback((tabId: string) => {
     const manager = managerRef.current;
@@ -287,15 +375,35 @@ export function App() {
           <div className="sidebar-heading"><span>НОТАТКИ</span><button className="icon-button" aria-label="Створити нотатку" title="Створити нотатку" onClick={createNote} disabled={saveState === 'loading'}><Plus size={17} /></button></div>
           <div className="note-list" role="list" aria-label="Список нотаток">
             {notes.map(note => (
-              <button key={note.id} className={`tree-item note-item${note.id === activeNote?.id ? ' selected' : ''}`} onClick={() => openNote(note)} title={note.title}>
+              <button key={note.id} className={`tree-item note-item${!activeBinaryDocument && note.id === activeNote?.id ? ' selected' : ''}`} onClick={() => openNote(note)} title={note.title}>
                 <Files size={16} /><span>{note.title || 'Без назви'}</span>
+              </button>
+            ))}
+          </div>
+          <div className="sidebar-heading documents-heading">
+            <span>ДОКУМЕНТИ</span>
+            <button className="icon-button" aria-label="Імпортувати документ" title="Імпортувати DOCX, XLSX, PPTX та інші підтримувані файли" onClick={() => fileInputRef.current?.click()} disabled={saveState === 'loading'}>
+              <FileUp size={16} />
+            </button>
+          </div>
+          <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.doc,.xls,.ppt,.odt,.ods,.odp,.rtf,.csv,.tsv,.txt,.md,.html,.svg" aria-label="Файл для імпорту"
+            onChange={event => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) void importBinaryDocument(file);
+            }}
+          />
+          <div className="note-list document-list" role="list" aria-label="Список документів">
+            {binaryDocuments.map(document => (
+              <button key={document.id} className={`tree-item note-item${activeBinaryDocument?.id === document.id ? ' selected' : ''}`} onClick={() => void openBinaryDocument(document.id)} title={document.title}>
+                <FileText size={16} /><span>{document.title}</span>
               </button>
             ))}
           </div>
           <div className="sidebar-footer"><span className="status-dot" />Лише локальне збереження</div>
         </aside>}
         <section className="document-area">
-          <div className="document-tabs" role="tablist" aria-label="Відкриті документи">
+          {!activeBinaryDocument && <div className="document-tabs" role="tablist" aria-label="Відкриті документи">
             {workspace?.tabs.map(tab => {
               const note = notes.find(item => item.id === tab.noteId);
               if (!note) return null;
@@ -310,8 +418,26 @@ export function App() {
                 <button className="tab-close" aria-label={`Закрити ${note.title || 'Без назви'}`} onClick={() => closeTab(tab.id)}><X size={13} /></button>
               </div>;
             })}
-          </div>
-          {activeNote ? <>
+          </div>}
+          {activeBinaryDocument ? <>
+            <div className="document-header">
+              <div className="document-title-wrap">
+                <div className="breadcrumb">Документи <span>/</span> Локальний робочий простір</div>
+                <div className="document-title-text">{activeBinaryDocument.title}</div>
+              </div>
+              <div className="document-actions">
+                <span className={`save-indicator ${binarySaveState}`} title={storageError ?? undefined}>
+                  {binarySaveState === 'saving' ? <LoaderCircle size={14} /> : binarySaveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}
+                  {binarySaveState === 'saving' ? 'Збереження…' : binarySaveState === 'error' ? 'Помилка збереження' : binaryDirty ? 'Є незбережені зміни' : 'Збережено локально'}
+                </span>
+                <button className="icon-button delete-note-button" aria-label="Видалити документ" title="Видалити документ" onClick={() => void deleteActiveBinaryDocument()}><Trash2 size={16} /></button>
+                <button className="icon-button" aria-label="Закрити документ" title="Закрити документ" onClick={() => { if (canLeaveBinaryDocument()) setActiveBinaryDocument(null); }}><X size={16} /></button>
+              </div>
+            </div>
+            <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}>
+              <OfficeDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} />
+            </Suspense>
+          </> : activeNote ? <>
             <div className="document-header">
               <div className="document-title-wrap">
                 <div className="breadcrumb">Нотатки <span>/</span> {activeTabRepository?.name ?? 'Репозиторій'}</div>

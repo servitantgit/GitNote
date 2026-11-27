@@ -78,6 +78,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 - `src/core/domain/document-source.ts` defines the text DocumentSource, binary document storage contracts, document metadata/records, attachment metadata and sync-state types.
 - `src/infrastructure/storage/local-document-source.ts` implements local text document CRUD and Blob-preserving binary document CRUD through Dexie.
+- `src/modules/documents/OfficeDocumentViewer.tsx` adapts `@p10node/office-engine` to the workspace: imported files are opened from their stored Blob and the editor's save callback writes the edited Blob back to IndexedDB.
 - Document metadata includes repository ID, optional relative path, optional baseSha, and sync state: local, clean, dirty or conflict.
 - `src/core/domain/workspace-file-system.ts` defines VFS contracts and path helpers.
 - `src/infrastructure/storage/local-workspace-file-system.ts` implements local folder/file listing, folder creation, document registration, rename, move and recursive deletion.
@@ -85,7 +86,8 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Folder/file rename and move update descendant paths and linked document metadata in one IndexedDB transaction.
 - Removing a file/folder removes linked documents from local note storage.
 - Existing notes are migrated into a Notes directory with stable document IDs. Dexie schema version 6 adds a separate `binaryDocuments` table; the migration is additive and retains the existing gitnote-local database.
-- Binary workspace file storage now preserves imported bytes as Blob records, separate from text notes. File import UI and format viewers/editors are not implemented yet. Attachment metadata shape exists, but note-scoped attachment ownership/lifecycle and UI remain unimplemented.
+- Binary workspace file storage preserves imported bytes as Blob records, separate from text notes. The sidebar can import supported Office and text/document formats into `Documents/`, list them, reopen them after reload, and remove them through the VFS.
+- `@p10node/office-engine` 0.18.0 (MIT) provides browser-local viewing/editing for DOCX, XLSX and PPTX, plus its documented legacy/OpenDocument and plain-text import formats. It runs in the browser; GitNotes persists edited output through the `onSave` Blob callback. This is a format-specific adapter, not the shared document-opening contract for every format. Attachment metadata shape exists, but note-scoped attachment ownership/lifecycle and UI remain unimplemented.
 
 ### Workspace model
 
@@ -154,11 +156,10 @@ The goal is format-appropriate experiences within one workspace, not a single Ma
 
 - [ ] Shared document-opening contract and format capability model (view, edit, import, export, print), without assuming every format supports every operation.
 - [x] Separate Blob-preserving IndexedDB storage for binary workspace documents, including atomic VFS registration, path updates and recursive deletion.
-- [x] Separate Blob-preserving IndexedDB storage for binary workspace documents, including atomic VFS registration, path updates and recursive deletion.
 - [ ] PDF viewer and defined PDF interaction scope.
-- [ ] DOCX viewer and editing strategy.
-- [ ] XLSX viewer and editing strategy.
-- [ ] PPTX viewing support and defined editing scope.
+- [x] DOCX viewer and editing strategy: browser-local editing through `@p10node/office-engine`.
+- [x] XLSX viewer and editing strategy: browser-local editing through `@p10node/office-engine`.
+- [x] PPTX viewing/editing scope: browser-local editing through `@p10node/office-engine`.
 - [ ] Sandboxed HTML preview and HTML editing strategy.
 - [x] Initial filename/MIME format detection for common text, Office, PDF, media and archive types. Format-specific dispatch remains planned.
 - [ ] Lazy-load heavy viewers/editors and define import/export behavior per format.
@@ -179,8 +180,7 @@ Only after editor and local workspace foundations are ready:
 ## Known limitations and cautions
 
 - The visible UI is still a flat notes list, not the VFS tree.
-- Binary document persistence and VFS lifecycle are implemented, but no user-facing file import/open workflow exists yet.
-- Binary document persistence and VFS lifecycle are implemented, but no user-facing file import/open workflow exists yet.
+- The initial document import/open workflow currently lists binary documents separately from Markdown notes; the full navigable VFS tree and shared multi-format tab model are not implemented.
 - Local VFS operations exist as a storage/domain service; they are not yet exposed as normal user-facing file manager workflows.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
 - Attachments are metadata-only at this stage.

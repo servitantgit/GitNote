@@ -11,6 +11,48 @@ test.beforeEach(async ({ page }) => {
   }, { message: 'The local workspace should initialize before editor tests run' }).toBe('ready');
 });
 
+test('imports a local document, opens it and restores its Blob after reload', async ({ page }) => {
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Імпортувати документ' }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: 'Browser import.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Imported text remains binary-backed'),
+  });
+  await expect(page.getByRole('button', { name: 'Browser import.txt' })).toBeVisible();
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+
+  const stored = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return new Promise<{ document: { path: string; size: number; content: Blob } | undefined; node: { path: string; documentId?: string } | undefined }>((resolve, reject) => {
+      const transaction = db.transaction(['binaryDocuments', 'fileNodes'], 'readonly');
+      const documentsRequest = transaction.objectStore('binaryDocuments').getAll();
+      const nodesRequest = transaction.objectStore('fileNodes').getAll();
+      transaction.oncomplete = () => {
+        const document = documentsRequest.result.find((item: { title: string }) => item.title === 'Browser import.txt');
+        resolve({ document, node: nodesRequest.result.find((item: { path: string }) => item.path === 'Documents/Browser import.txt') });
+      };
+      transaction.onerror = () => reject(transaction.error);
+    });
+  });
+  expect(stored.document?.path).toBe('Documents/Browser import.txt');
+  expect(stored.document?.size).toBe(Buffer.byteLength('Imported text remains binary-backed'));
+  expect(await stored.document?.content.text()).toBe('Imported text remains binary-backed');
+  expect(stored.node?.documentId).toBeTruthy();
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Browser import.txt' })).toBeVisible();
+  await page.getByRole('button', { name: 'Browser import.txt' }).click();
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
 test('opens the workspace and initializes the local note', async ({ page }) => {
   await expect(page.getByText('GitNotes', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('list', { name: 'Список нотаток' })).toBeVisible();
