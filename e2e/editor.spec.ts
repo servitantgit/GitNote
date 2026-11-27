@@ -150,23 +150,49 @@ test('restores one logical scroll position per note across Source and Preview', 
   await editor.fill(content);
 
   const source = page.locator('.cm-scroller');
+  const readVisibleLogicalPosition = () => source.evaluate(element => {
+    const viewport = element.getBoundingClientRect();
+    const firstVisibleLine = Array.from(element.querySelectorAll<HTMLElement>('.cm-line'))
+      .find(line => {
+        const bounds = line.getBoundingClientRect();
+        return bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
+      });
+    if (!firstVisibleLine) return null;
+    const bounds = firstVisibleLine.getBoundingClientRect();
+    return {
+      text: firstVisibleLine.textContent?.trim() ?? '',
+      offset: Math.max(0, Math.min(1, (viewport.top - bounds.top) / Math.max(1, bounds.height))),
+    };
+  });
+
   await source.evaluate(element => { element.scrollTop = element.scrollHeight * 0.55; element.dispatchEvent(new Event('scroll')); });
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
+  const initialLogicalPosition = await readVisibleLogicalPosition();
 
-  // Source and Live use the same editor surface; mode changes must not
-  // reset its viewport or break synchronization with the reading Preview.
+  // Source and Live use the same editor surface; compare the visible
+  // document line and its fractional offset, not pixels. Line wrapping changes
+  // the visual height of a logical line when the Source pane becomes narrower.
   await page.getByRole('tab', { name: 'Live' }).click();
-  await expect.poll(() => source.evaluate(element => element.scrollTop))
-    .toBeGreaterThan(initialSourceTop * 0.8);
+  await expect.poll(async () => {
+    const next = await readVisibleLogicalPosition();
+    return Boolean(next && initialLogicalPosition
+      && next.text === initialLogicalPosition.text
+      && Math.abs(next.offset - initialLogicalPosition.offset) < 0.15);
+  }).toBe(true);
+
   await source.evaluate(element => {
     element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.65;
     element.dispatchEvent(new Event('scroll'));
   });
-  const livePreviewTop = await source.evaluate(element => element.scrollTop);
+  const liveLogicalPosition = await readVisibleLogicalPosition();
   await page.getByRole('tab', { name: 'Source' }).click();
-  await expect.poll(() => source.evaluate(element => element.scrollTop))
-    .toBeGreaterThan(livePreviewTop * 0.8);
+  await expect.poll(async () => {
+    const next = await readVisibleLogicalPosition();
+    return Boolean(next && liveLogicalPosition
+      && next.text === liveLogicalPosition.text
+      && Math.abs(next.offset - liveLogicalPosition.offset) < 0.15);
+  }).toBe(true);
 
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(2);
