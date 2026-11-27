@@ -44,4 +44,4 @@ export class LocalIndexedDbDocumentSource implements MutableDocumentSource {
   }
 }
 
-export const documentSource = new LocalIndexedDbDocumentSource();
+export const documentSource: MutableDocumentSource = new LocalIndexedDbDocumentSource();
