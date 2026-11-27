@@ -1,50 +1,110 @@
-import { describe, expect, it } from 'vitest';
-import { Text } from '@codemirror/state';
-import { getFenceStateBeforeLine, isFenceClosing, parseFenceOpening } from './markdown-syntax';
+import { expect, test } from '@playwright/test';
 
-describe('Markdown fenced code detection', () => {
-  it('recognizes backtick and tilde fence openers', () => {
-    expect(parseFenceOpening('```ts')).toEqual({ marker: '`', length: 3 });
-    expect(parseFenceOpening('  ~~~~')).toEqual({ marker: '~', length: 4 });
-  });
+test.beforeEach(async ({ page }) => {
+  // Playwright creates a fresh browser context for each test, including a clean IndexedDB.
+  await page.goto('/');
+});
 
-  it('rejects invalid fence openers', () => {
-    expect(parseFenceOpening('not a fence')).toBeNull();
-    expect(parseFenceOpening('```js`')).toBeNull();
-  });
+test('opens the workspace and initializes the local note', async ({ page }) => {
+  await expect(page.getByText('GitNotes', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Список нотаток' })).toBeVisible();
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
+  await expect(page.getByRole('tab', { name: 'Source' })).toHaveAttribute('aria-selected', 'true');
+});
 
-  it('requires a closing fence with the same marker and sufficient length', () => {
-    const fence = { marker: '`' as const, length: 3 };
-    expect(isFenceClosing('  ````  ', fence)).toBe(true);
-    expect(isFenceClosing('~~~', fence)).toBe(false);
-    expect(isFenceClosing('``', fence)).toBe(false);
-    expect(isFenceClosing('``` trailing text', fence)).toBe(false);
-  });
+test('creates a note, autosaves its content and restores it after reload', async ({ page }) => {
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await page.getByLabel('Назва нотатки').fill('Browser test note');
 
-  it('does not treat the first document line as preceding context', () => {
-    const doc = Text.of(['```ts', 'const value = 1;', '```']);
-    expect(getFenceStateBeforeLine(doc, 1)).toBeNull();
-    expect(getFenceStateBeforeLine(doc, 2)).toEqual({ marker: '`', length: 3 });
-  });
+  const editor = page.locator('.cm-content');
+  await editor.fill('# Persisted heading\n\nText saved by the browser test.');
 
-  it('tracks whether a line is inside a fenced code block', () => {
-    const doc = Text.of(['Intro', '```ts', 'const value = **literal**;', '```', 'After']);
-    expect(getFenceStateBeforeLine(doc, 2)).toBeNull();
-    expect(getFenceStateBeforeLine(doc, 3)).toEqual({ marker: '`', length: 3 });
-    expect(getFenceStateBeforeLine(doc, 4)).toEqual({ marker: '`', length: 3 });
-    expect(getFenceStateBeforeLine(doc, 5)).toBeNull();
-  });
+  const saveIndicator = page.locator('.save-indicator');
+  await expect(saveIndicator).toHaveText('Збереження…');
+  await expect(saveIndicator).toHaveText('Збережено локально');
+  await page.reload();
 
-  it('does not close a longer fence with a shorter marker', () => {
-    const doc = Text.of(['~~~~', '~~~', 'still code', '~~~~', 'text']);
-    expect(getFenceStateBeforeLine(doc, 3)).toEqual({ marker: '~', length: 4 });
-    expect(getFenceStateBeforeLine(doc, 5)).toBeNull();
-  });
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Browser test note');
+  await expect(page.locator('.cm-content')).toContainText('Persisted heading');
+  await expect(page.locator('.cm-content')).toContainText('Text saved by the browser test.');
+});
+
+test('switches between Source, Live Preview and Preview without losing content', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  await editor.fill('# Browser heading\n\n**Formatted text**');
+
+  await page.getByRole('tab', { name: 'Live Preview' }).click();
+  await expect(page.locator('.gn-heading-1')).toContainText('Browser heading');
+  await expect(page.locator('.gn-strong')).toContainText('Formatted text');
+
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect(page.locator('.markdown-preview')).toBeVisible();
+  await expect(page.locator('.markdown-preview h1')).toHaveText('Browser heading');
+  await expect(page.locator('.markdown-preview strong')).toHaveText('Formatted text');
+
+  await page.getByRole('tab', { name: 'Source' }).click();
+  await expect(page.locator('.cm-content')).toContainText('**Formatted text**');
+});
+
+test('applies Markdown formatting from the toolbar to the selected text', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  await editor.fill('selected text');
+  await editor.press('Control+A');
+  await page.getByRole('button', { name: 'Жирний' }).click();
+  await expect(editor).toContainText('**selected text**');
+});
+
+test('deletes a note after confirmation', async ({ page }) => {
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await page.getByLabel('Назва нотатки').fill('Note to delete');
+  await expect(page.getByRole('list', { name: 'Список нотаток' })).toContainText('Note to delete');
+
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Видалити нотатку' }).click();
+
+  await expect(page.getByRole('list', { name: 'Список нотаток' })).not.toContainText('Note to delete');
+});
+
+test('restores each note editor state and undo history after switching tabs', async ({ page }) => {
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  const editor = page.locator('.cm-content');
+
+  await editor.fill('Note A');
+  await editor.press('End');
+  await editor.pressSequentially(' edited');
+  await editor.press('Home');
+  await editor.press('ArrowRight');
+
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await editor.fill('Note B');
+
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).first().click();
+  await expect(editor).toContainText('Note A edited');
+
+  // The caret was between the first and second characters when this tab was left.
+  await editor.pressSequentially('X');
+  await expect(editor).toContainText('NXote A edited');
+
+  // Undo must operate on note A's own history, never note B's.
+  await editor.press('Control+z');
+  await expect(editor).toContainText('Note A edited');
+  await expect(editor).not.toContainText('Note B');
+
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).last().click();
+  await expect(editor).toContainText('Note B');
+});
+
+test('Ctrl+I applies italic formatting to the selected text', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  await editor.fill('selected text');
+  await editor.press('Control+a');
+  await editor.press('Control+i');
+  await expect(editor).toContainText('*selected text*');
 });
 
 test('captures Source and Live Preview visual states for browser review', async ({ page }) => {
   const editor = page.locator('.cm-content');
-  await editor.fill('# Visual heading\\n\\n**Formatted text**\\n\\n```ts\\nconst value = 1;\\n```');
+  await editor.fill('# Visual heading\n\n**Formatted text**\n\n```ts\nconst value = 1;\n```');
   await page.screenshot({ path: 'test-results/gitnotes-source.png', fullPage: true });
 
   await page.getByRole('tab', { name: 'Live Preview' }).click();
@@ -54,7 +114,9 @@ test('captures Source and Live Preview visual states for browser review', async 
 });
 
 test('stores newly created notes as files in the local VFS', async ({ page }) => {
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
+
   const vfs = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('gitnote-local');
@@ -76,4 +138,38 @@ test('stores newly created notes as files in the local VFS', async ({ page }) =>
     kind: 'file',
     documentId: note?.id,
   }));
+});
+
+test('renames and moves VFS nodes atomically and recursively removes linked documents', async ({ page }) => {
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
+
+  const result = await page.evaluate(async () => {
+    const { workspaceFileSystem } = await import('/src/infrastructure/storage/local-workspace-file-system.ts');
+    const { documentSource } = await import('/src/infrastructure/storage/local-document-source.ts');
+    const { database } = await import('/src/infrastructure/storage/database.ts');
+    const repositoryId = 'local-workspace';
+    const id = crypto.randomUUID();
+    const now = Date.now();
+
+    await workspaceFileSystem.createFolder(repositoryId, 'Notes', 'VfsTest');
+    await workspaceFileSystem.createFolder(repositoryId, 'Notes/VfsTest', 'Nested');
+    await documentSource.create({
+      id, repositoryId, title: 'VFS test document', syncState: 'local',
+      createdAt: now, updatedAt: now,
+    }, 'VFS test content');
+    await workspaceFileSystem.registerDocument(repositoryId, id, 'Notes/VfsTest/Nested/file.md');
+
+    await workspaceFileSystem.rename(repositoryId, 'Notes/VfsTest', 'VfsRenamed');
+    await workspaceFileSystem.move(repositoryId, 'Notes/VfsRenamed/Nested/file.md', 'Notes/VfsRenamed');
+    await workspaceFileSystem.rename(repositoryId, 'Notes/VfsRenamed/file.md', 'renamed.md');
+
+    const updatedNote = await database.notes.get(id);
+    await workspaceFileSystem.remove(repositoryId, 'Notes/VfsRenamed');
+    const deletedNote = await database.notes.get(id);
+
+    return { path: updatedNote?.path, deleted: deletedNote === undefined };
+  });
+
+  expect(result.path).toBe('Notes/VfsRenamed/renamed.md');
+  expect(result.deleted).toBe(true);
 });
