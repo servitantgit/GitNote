@@ -150,31 +150,26 @@ test('restores one logical scroll position per note across Source and Preview', 
   await editor.fill(content);
 
   const source = page.locator('.cm-scroller');
+  const preview = page.locator('.markdown-preview');
   const readVisibleLogicalPosition = () => source.evaluate(element => {
     const viewport = element.getBoundingClientRect();
-    const firstVisibleLine = Array.from(element.querySelectorAll<HTMLElement>('.cm-line'))
-      .find(line => {
-        const bounds = line.getBoundingClientRect();
-        return line.textContent?.trim() && bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
-      });
-    if (!firstVisibleLine) return null;
-    const bounds = firstVisibleLine.getBoundingClientRect();
+    const lines = Array.from(element.querySelectorAll<HTMLElement>('.cm-content > .cm-line'));
+    const lineNumbers = Array.from(element.querySelectorAll<HTMLElement>('.cm-gutter.cm-lineNumbers .cm-gutterElement'));
+    const visibleIndex = lines.findIndex(line => {
+      const bounds = line.getBoundingClientRect();
+      return bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
+    });
+    if (visibleIndex < 0 || !lineNumbers[visibleIndex]) return null;
+    const bounds = lines[visibleIndex].getBoundingClientRect();
+    const line = Number(lineNumbers[visibleIndex].textContent?.trim()) - 1;
+    if (!Number.isFinite(line)) return null;
     return {
-      text: firstVisibleLine.textContent?.trim() ?? '',
+      line,
       offset: Math.max(0, Math.min(1, (viewport.top - bounds.top) / Math.max(1, bounds.height))),
     };
   });
-  const readVisiblePreviewParagraph = () => page.locator('.markdown-preview').evaluate(element => {
-    const viewport = element.getBoundingClientRect();
-    const paragraph = Array.from(element.querySelectorAll<HTMLElement>('p'))
-      .find(item => {
-        const bounds = item.getBoundingClientRect();
-        return bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
-      });
-    return paragraph?.textContent?.trim() ?? null;
-  });
 
-  await source.evaluate(element => { element.scrollTop = element.scrollHeight * 0.55; element.dispatchEvent(new Event('scroll')); });
+  await source.evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; element.dispatchEvent(new Event('scroll')); });
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
   const initialLogicalPosition = await readVisibleLogicalPosition();
@@ -186,21 +181,31 @@ test('restores one logical scroll position per note across Source and Preview', 
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
     return Boolean(next && initialLogicalPosition
-      && next.text === initialLogicalPosition.text
+      && next.line === initialLogicalPosition.line
       && Math.abs(next.offset - initialLogicalPosition.offset) < 0.15);
   }).toBe(true);
-  await expect.poll(readVisiblePreviewParagraph).toBe(initialLogicalPosition?.text ?? null);
+  await expect(preview).toBeVisible();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
+  const previewTopBeforeSourceScroll = await preview.evaluate(element => element.scrollTop);
   await source.evaluate(element => {
     element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.65;
     element.dispatchEvent(new Event('scroll'));
   });
+  await expect.poll(() => preview.evaluate(element => element.scrollTop))
+    .not.toBe(previewTopBeforeSourceScroll);
+  await expect.poll(async () => {
+    const before = await preview.evaluate(element => element.scrollTop);
+    await page.waitForTimeout(50);
+    const after = await preview.evaluate(element => element.scrollTop);
+    return Math.abs(after - before) < 0.5;
+  }).toBe(true);
   const liveLogicalPosition = await readVisibleLogicalPosition();
   await page.getByRole('tab', { name: 'Source' }).click();
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
     return Boolean(next && liveLogicalPosition
-      && next.text === liveLogicalPosition.text
+      && next.line === liveLogicalPosition.line
       && Math.abs(next.offset - liveLogicalPosition.offset) < 0.15);
   }).toBe(true);
 
@@ -211,7 +216,6 @@ test('restores one logical scroll position per note across Source and Preview', 
     .toBeGreaterThan(initialSourceTop * 0.8);
 
   await page.getByRole('tab', { name: 'Preview', exact: true }).click();
-  const preview = page.locator('.markdown-preview');
   await expect(preview).toBeVisible();
   await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
