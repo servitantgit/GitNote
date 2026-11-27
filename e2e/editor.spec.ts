@@ -170,6 +170,7 @@ test('restores one logical scroll position per note across Source and Preview', 
     return {
       line,
       offset: Math.max(0, Math.min(1, (viewport.top - bounds.top) / Math.max(1, bounds.height))),
+      text: visibleLine.textContent?.trim().slice(0, 100),
     };
   });
 
@@ -207,6 +208,13 @@ test('restores one logical scroll position per note across Source and Preview', 
   }).toBe(true);
   const liveLogicalPosition = await readVisibleLogicalPosition();
   await page.getByRole('tab', { name: 'Source' }).click();
+  await page.waitForTimeout(100);
+  console.log('WRAP_SCROLL_POSITION_COMPARE', {
+    live: liveLogicalPosition,
+    source: await readVisibleLogicalPosition(),
+    scrollTop: await source.evaluate(element => element.scrollTop),
+    scrollHeight: await source.evaluate(element => element.scrollHeight),
+  });
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
     return Boolean(next && liveLogicalPosition
