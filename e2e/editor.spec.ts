@@ -337,6 +337,33 @@ test('Split shows Source and Preview together with bidirectional synchronized sc
   await expect(editor).toContainText('Newly edited section');
 });
 
+test('Split Preview responds to small mouse-wheel increments', async ({ page }) => {
+  const content = Array.from({ length: 120 }, (_, index) =>
+    `Paragraph ${index + 1} with enough text to occupy a visible line in the rendered preview.`,
+  ).join('\\n\\n');
+  await page.locator('.cm-content').fill(content);
+  await page.getByRole('tab', { name: 'Split', exact: true }).click();
+
+  const preview = page.locator('.markdown-preview');
+  await expect(preview).toBeVisible();
+  const bounds = await preview.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(
+    (bounds?.x ?? 0) + (bounds?.width ?? 0) / 2,
+    (bounds?.y ?? 0) + (bounds?.height ?? 0) / 2,
+  );
+
+  // Fractional wheel deltas model a deliberately slow wheel movement. These
+  // must not be mistaken for the coordinator's pending programmatic echo.
+  for (let index = 0; index < 12; index += 1) {
+    await page.mouse.wheel(0, 0.25);
+  }
+
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0.5);
+  await expect.poll(() => page.locator('.cm-scroller').evaluate(element => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
 test('minimap follows the active editor surface and drives synchronized scrolling', async ({ page }) => {
   const content = Array.from({ length: 90 }, (_, index) =>
     '## Section ' + (index + 1) + '\n\nParagraph ' + (index + 1) + ' with enough content to create a scrollable document.',

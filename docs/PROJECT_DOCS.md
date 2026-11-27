@@ -95,7 +95,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - npm run build: TypeScript project build and Vite production build.
 - GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium) and Production build jobs.
 - Playwright failure artifacts include HTML report, screenshots and traces.
-- Scroll regression coverage checks Source and Live Preview continuity, Preview synchronization, independent positions for separate notes, Preview image-load/ResizeObserver notifications, and Split's simultaneous bidirectional Source/Preview synchronization. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live Preview and Preview.
+- Scroll regression coverage checks Source and Live Preview continuity, Preview synchronization, independent positions for separate notes, Preview image-load/ResizeObserver notifications, Split's simultaneous bidirectional Source/Preview synchronization, and small fractional mouse-wheel increments in Split Preview. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live Preview and Preview.
 - Do not mark a commit verified unless all three latest CI jobs pass.
 
 ## Roadmap and status

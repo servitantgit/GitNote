@@ -68,6 +68,22 @@ describe('createScrollCoordinator', () => {
     coordinator.destroy();
   });
 
+  it('does not swallow small user scroll increments near a pending initial position', () => {
+    const coordinator = createScrollCoordinator();
+    const source = makeSurface('source');
+    const preview = makeSurface('preview');
+    coordinator.register(source.surface);
+    coordinator.register(preview.surface);
+
+    // Registration leaves an initial-position echo pending when the surface
+    // was already at the top and therefore emitted no scroll event.
+    preview.userScroll({ line: 0, offset: 0.01 });
+
+    expect(coordinator.getPosition()).toEqual({ line: 0, offset: 0.01 });
+    expect(source.position).toEqual({ line: 0, offset: 0.01 });
+    coordinator.destroy();
+  });
+
   it('does not feed programmatic scroll writes back as user input', () => {
     const coordinator = createScrollCoordinator();
     const source = makeSurface('source');
