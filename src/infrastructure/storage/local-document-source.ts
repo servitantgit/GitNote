@@ -19,9 +19,8 @@ export class LocalIndexedDbDocumentSource implements MutableDocumentSource {
     if (!note) throw new Error(`Document not found: ${id}`);
     note.content = content;
     if (baseSha !== undefined) note.baseSha = baseSha;
-    note.syncState = note.path
-      ? note.syncState === 'conflict' ? 'conflict' : 'dirty'
-      : 'local';
+    // This adapter represents local storage, not a remote Git working tree.
+    note.syncState = note.syncState === 'conflict' ? 'conflict' : 'local';
     note.updatedAt = Date.now();
     await database.notes.put(note);
     return {};

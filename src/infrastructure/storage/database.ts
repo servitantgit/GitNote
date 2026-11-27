@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { WorkspaceSnapshot } from '../../core/domain/workspace';
-import type { DocumentMeta, DocumentRecord } from '../../core/domain/document-source';
+import type { DocumentRecord } from '../../core/domain/document-source';
+import type { WorkspaceFileNode } from '../../core/domain/workspace-file-system';
 
 export interface LocalDraft {
   id: string;
@@ -22,6 +23,7 @@ class GitNotesDatabase extends Dexie {
   drafts!: EntityTable<LocalDraft, 'id'>;
   notes!: EntityTable<LocalNote, 'id'>;
   workspaces!: EntityTable<StoredWorkspace, 'id'>;
+  fileNodes!: EntityTable<WorkspaceFileNode, 'id'>;
 
   constructor() {
     // Keep the existing database name so previously saved GitNote notes remain accessible.
@@ -43,6 +45,70 @@ class GitNotesDatabase extends Dexie {
     }).upgrade(transaction => transaction.table('notes').toCollection().modify(note => {
       if (!note.syncState) note.syncState = 'local';
     }));
+    this.version(5).stores({
+      drafts: 'id, repositoryId, path, updatedAt',
+      notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      workspaces: 'id, updatedAt',
+      fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
+    }).upgrade(async transaction => {
+      const notesTable = transaction.table('notes');
+      const nodesTable = transaction.table('fileNodes');
+      const notes = await notesTable.toArray();
+      const folders = new Map<string, WorkspaceFileNode>();
+      const occupied = new Set<string>();
+      const now = Date.now();
+
+      for (const note of notes) {
+        const repositoryId = note.repositoryId;
+        const title = typeof note.title === 'string' && note.title.trim() ? note.title.trim() : 'Без назви';
+        const slug = title.normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').toLowerCase() || 'note';
+        let path = typeof note.path === 'string' && note.path.trim()
+          ? note.path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+          : `Notes/${slug}-${String(note.id).slice(0, 8)}.md`;
+        const key = `${repositoryId}:${path}`;
+        if (occupied.has(key)) path = `Notes/${slug}-${String(note.id)}.md`;
+        occupied.add(`${repositoryId}:${path}`);
+
+        const segments = path.split('/');
+        let parentPath = '';
+        for (const segment of segments.slice(0, -1)) {
+          const folderPath = parentPath ? `${parentPath}/${segment}` : segment;
+          const folderKey = `${repositoryId}:${folderPath}`;
+          if (!folders.has(folderKey)) {
+            const folder: WorkspaceFileNode = {
+              id: `migration-folder:${repositoryId}:${folderPath}`,
+              repositoryId,
+              path: folderPath,
+              parentPath,
+              name: segment,
+              kind: 'folder',
+              createdAt: now,
+              updatedAt: now,
+            };
+            folders.set(folderKey, folder);
+          }
+          parentPath = folderPath;
+        }
+
+        const file: WorkspaceFileNode = {
+          id: `migration-file:${note.id}`,
+          repositoryId,
+          path,
+          parentPath,
+          name: segments[segments.length - 1],
+          kind: 'file',
+          documentId: note.id,
+          createdAt: note.createdAt ?? now,
+          updatedAt: note.updatedAt ?? now,
+        };
+        note.path = path;
+        if (!note.syncState) note.syncState = 'local';
+        await notesTable.put(note);
+        await nodesTable.put(file);
+      }
+
+      if (folders.size) await nodesTable.bulkPut([...folders.values()]);
+    });
   }
 }
 
