@@ -137,15 +137,24 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
       }, lineCount);
     },
     scrollToPosition(position) {
-      const lineCount = view.state.doc.lines;
-      const normalized = normalizeScrollPosition(position, lineCount);
-      const line = view.state.doc.line(normalized.line + 1);
-      const block = view.lineBlockAt(line.from);
-      const height = Math.max(1, block.bottom - block.top);
-      const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
-      const currentDocumentOffset = viewportTop - view.documentTop;
-      const targetDocumentOffset = block.top + height * normalized.offset;
-      view.scrollDOM.scrollTop += targetDocumentOffset - currentDocumentOffset;
+      view.requestMeasure({
+        key: view,
+        read: () => {
+          const normalized = normalizeScrollPosition(position, view.state.doc.lines);
+          const line = view.state.doc.line(normalized.line + 1);
+          const block = view.lineBlockAt(line.from);
+          const height = Math.max(1, block.bottom - block.top);
+          const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
+          const currentDocumentOffset = viewportTop - view.documentTop;
+          return {
+            currentDocumentOffset,
+            targetDocumentOffset: block.top + height * normalized.offset,
+          };
+        },
+        write: ({ currentDocumentOffset, targetDocumentOffset }) => {
+          view.scrollDOM.scrollTop += targetDocumentOffset - currentDocumentOffset;
+        },
+      });
     },
     subscribe(listener) {
       view.scrollDOM.addEventListener('scroll', listener, { passive: true });

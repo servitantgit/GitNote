@@ -119,19 +119,6 @@ describe('createScrollCoordinator', () => {
     coordinator.destroy();
   });
 
-  it('supports deferred restoration until a scroll surface has completed layout', () => {
-    const coordinator = createScrollCoordinator({ line: 31, offset: 0.75 });
-    const source = makeSurface('source');
-    const detach = coordinator.register(source.surface, false);
-
-    expect(source.writes).toHaveLength(0);
-    expect(coordinator.getPosition()).toEqual({ line: 31, offset: 0.75 });
-
-    detach();
-    expect(coordinator.getPosition()).toEqual({ line: 31, offset: 0.75 });
-    coordinator.destroy();
-  });
-
   it('unregisters surfaces and clears subscriptions on destroy', () => {
     const coordinator = createScrollCoordinator();
     const source = makeSurface('source');

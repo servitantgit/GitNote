@@ -38,58 +38,49 @@ export function createScrollCoordinator(
     }
   }
 
-  function handleSurfaceScroll(id: string): boolean {
+  function handleSurfaceScroll(id: string) {
     const entry = surfaces.get(id);
-    if (!entry || destroyed) return false;
+    if (!entry || destroyed) return;
     let next: DocumentScrollPosition;
     try {
       next = entry.surface.readPosition();
     } catch {
-      return false;
+      return;
     }
 
     const pending = pendingWrites.get(id);
     if (pending && samePosition(next, pending)) {
       pendingWrites.delete(id);
-      return false;
+      return;
     }
     pendingWrites.delete(id);
     publish(next, id);
-    return true;
   }
 
-  function register(surface: ScrollSurface, restoreImmediately = true): () => void {
+  function register(surface: ScrollSurface): () => void {
     if (destroyed) return () => undefined;
     const previous = surfaces.get(surface.id);
     previous?.unsubscribe();
     pendingWrites.delete(surface.id);
-    let hasUserScroll = false;
 
-    const unsubscribe = surface.subscribe(() => {
-      if (handleSurfaceScroll(surface.id)) hasUserScroll = true;
-    });
+    const unsubscribe = surface.subscribe(() => handleSurfaceScroll(surface.id));
     surfaces.set(surface.id, { surface, unsubscribe });
-    if (restoreImmediately) {
-      pendingWrites.set(surface.id, position);
-      surface.scrollToPosition(position);
-    }
+    pendingWrites.set(surface.id, position);
+    surface.scrollToPosition(position);
 
     return () => {
       const current = surfaces.get(surface.id);
       if (current?.surface !== surface) return;
-      if (restoreImmediately || hasUserScroll) {
-        try {
-          publish(surface.readPosition(), surface.id);
-        } catch {
-          // A surface may already have been detached by its host framework.
-        }
+      try {
+        publish(surface.readPosition(), surface.id);
+      } catch {
+        // A surface may already have been detached by its host framework.
       }
       current.unsubscribe();
       surfaces.delete(surface.id);
       pendingWrites.delete(surface.id);
     };
   }
-
   return {
     register,
     getPosition: () => position,

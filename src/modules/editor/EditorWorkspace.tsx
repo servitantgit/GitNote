@@ -70,7 +70,6 @@ export function EditorWorkspace({
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const sourceDetachRef = useRef<(() => void) | null>(null);
-  const sourceRestoreFrameRef = useRef<number | null>(null);
   const previewDetachRef = useRef<(() => void) | null>(null);
   const positionChangeRef = useRef(onScrollPositionChange);
   positionChangeRef.current = onScrollPositionChange;
@@ -85,12 +84,7 @@ export function EditorWorkspace({
 
   const attachSource = (view: EditorView) => {
     sourceDetachRef.current?.();
-    if (sourceRestoreFrameRef.current !== null) cancelAnimationFrame(sourceRestoreFrameRef.current);
-    sourceDetachRef.current = coordinator.register(createCodeMirrorScrollSurface(view), false);
-    sourceRestoreFrameRef.current = requestAnimationFrame(() => {
-      sourceRestoreFrameRef.current = null;
-      if (view.dom.isConnected) coordinator.scrollTo(coordinator.getPosition());
-    });
+    sourceDetachRef.current = coordinator.register(createCodeMirrorScrollSurface(view));
   };
 
   const extensions = useMemo(() => mode === 'live-preview'
@@ -113,10 +107,6 @@ export function EditorWorkspace({
     }
 
     return () => {
-      if (sourceRestoreFrameRef.current !== null) {
-        cancelAnimationFrame(sourceRestoreFrameRef.current);
-        sourceRestoreFrameRef.current = null;
-      }
       sourceDetachRef.current?.();
       sourceDetachRef.current = null;
       previewDetachRef.current?.();
