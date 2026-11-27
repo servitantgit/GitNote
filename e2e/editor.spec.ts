@@ -305,6 +305,13 @@ test('minimap follows the active editor surface and drives synchronized scrollin
   await minimap.click({ position: { x: 45, y: Math.floor((bounds?.height ?? 1) * 0.78) } });
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
+  await page.getByRole('tab', { name: 'Live Preview' }).click();
+  const livePreviewTop = await source.evaluate(element => element.scrollTop);
+  await minimap.click({ position: { x: 45, y: Math.floor((bounds?.height ?? 1) * 0.46) } });
+  await expect.poll(async () => Math.abs(
+    (await source.evaluate(element => element.scrollTop)) - livePreviewTop,
+  )).toBeGreaterThan(100);
+
   await page.getByRole('tab', { name: 'Preview', exact: true }).click();
   const preview = page.locator('.markdown-preview');
   await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);

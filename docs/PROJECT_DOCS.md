@@ -95,7 +95,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - npm run build: TypeScript project build and Vite production build.
 - GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium) and Production build jobs.
 - Playwright failure artifacts include HTML report, screenshots and traces.
-- Scroll regression coverage checks Source and Live Preview continuity, Preview synchronization, independent positions for separate notes, and Preview image-load/ResizeObserver notifications. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source and Preview.
+- Scroll regression coverage checks Source and Live Preview continuity, Preview synchronization, independent positions for separate notes, and Preview image-load/ResizeObserver notifications. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live Preview and Preview.
 - Do not mark a commit verified unless all three latest CI jobs pass.
 
 ## Roadmap and status
@@ -108,10 +108,10 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [x] Add folder creation, atomic document-plus-file creation, file registration, rename, move and recursive delete operations.
 - [x] Preserve CodeMirror EditorState per document tab.
 - [x] Use Lezer syntax-tree information to protect code ranges in Live Preview.
-- [ ] Verify per-tab cursor, selection, scroll and undo history in Chromium.
-- [ ] Add/verify visual browser regression coverage for Source and Live Preview.
-- [ ] Fix all failures in the latest CI browser-test run.
-- [ ] Keep project documentation synchronized with actual implementation.
+- [x] Verify per-tab cursor, selection, scroll and undo history in Chromium.
+- [x] Add/verify visual browser regression coverage for Source and Live Preview.
+- [x] Fix all failures in the latest CI browser-test run.
+- [x] Keep project documentation synchronized with actual implementation.
 
 ### Stage 1: editor core
 
