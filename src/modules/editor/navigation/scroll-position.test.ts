@@ -31,6 +31,33 @@ describe('createPreviewScrollSurface', () => {
     expect(surface.readPosition()).toEqual({ line: 5, offset: 0 });
   });
 
+  it('uses rendered paragraph boundaries to map documents without headings or images', () => {
+    const element = document.createElement('article');
+    element.innerHTML = '<p>First paragraph</p><p>Second paragraph</p><p>Third paragraph</p>';
+    Object.defineProperties(element, {
+      scrollHeight: { value: 600, configurable: true },
+      clientHeight: { value: 100, configurable: true },
+      scrollTop: { value: 0, writable: true, configurable: true },
+    });
+    element.getBoundingClientRect = () => ({ top: 0, bottom: 100, height: 100 } as DOMRect);
+    const paragraphs = Array.from(element.querySelectorAll('p'));
+    paragraphs.forEach((paragraph, index) => {
+      const top = [0, 150, 300][index];
+      paragraph.getBoundingClientRect = () => ({
+        top: top - element.scrollTop,
+        bottom: top + 100 - element.scrollTop,
+        height: 100,
+      } as DOMRect);
+    });
+    const content = 'First paragraph\n\nSecond paragraph\n\nThird paragraph';
+    const surface = createPreviewScrollSurface(element, content);
+
+    surface.scrollToPosition({ line: 2, offset: 0 });
+
+    expect(element.scrollTop).toBe(150);
+    expect(surface.readPosition()).toEqual({ line: 2, offset: 0 });
+  });
+
   it('maps the height of an image block instead of treating it as one preview line', () => {
     const element = document.createElement('article');
     element.innerHTML = '<img src="image.png">';

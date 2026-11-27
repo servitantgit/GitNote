@@ -59,6 +59,35 @@ test('switches between Source, Live and Preview without losing content', async (
   await expect(editor).toContainText('**Updated text**');
 });
 
+test('wraps long Markdown lines in Source and Live without horizontal overflow', async ({ page }) => {
+  const longLine = Array.from({ length: 90 }, (_, index) => `word${index + 1}`).join(' ');
+  const editor = page.locator('.cm-content');
+  const scroller = page.locator('.cm-scroller');
+  await editor.fill(longLine);
+
+  const assertWrapped = async () => {
+    const metrics = await scroller.evaluate(element => {
+      const line = element.querySelector('.cm-line');
+      if (!line) return null;
+      return {
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        lineHeight: Number.parseFloat(getComputedStyle(line).lineHeight),
+        renderedHeight: line.getBoundingClientRect().height,
+      };
+    });
+    expect(metrics).not.toBeNull();
+    expect(metrics!.scrollWidth).toBeLessThanOrEqual(metrics!.clientWidth + 1);
+    expect(metrics!.renderedHeight).toBeGreaterThan(metrics!.lineHeight * 2);
+  };
+
+  await assertWrapped();
+  await page.getByRole('tab', { name: 'Live', exact: true }).click();
+  await expect(page.locator('.editor-main.live-mode')).toBeVisible();
+  await assertWrapped();
+  await expect(page.locator('.markdown-preview')).toContainText('word90');
+});
+
 test('applies Markdown formatting from the toolbar to the selected text', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('selected text');
@@ -110,34 +139,96 @@ test('restores each note editor state and undo history after switching tabs', as
   await expect(editor).toContainText('Note B');
 });
 
-test('restores one logical scroll position per note across Source and Preview', async ({ page }) => {
+test('restores one logical scroll position per note across Source and Preview when layout is stable', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
 
   const content = Array.from({ length: 80 }, (_, index) =>
-    `Paragraph ${index + 1} with enough text to occupy a visible line in the editor and preview.`,
-  ).join('\n\n');
+    `## Section ${index + 1}`,
+  ).join('\n');
   const editor = page.locator('.cm-content');
   await editor.fill(content);
 
+  type LogicalPosition = { line: number; offset: number };
+  const readScrollState = () => page.evaluate(() => {
+    const hook = (window as Window & {
+      __gitnoteScrollDebug?: {
+        readCoordinatorPosition: () => LogicalPosition;
+        readSourcePosition: () => LogicalPosition | null;
+      };
+    }).__gitnoteScrollDebug;
+    return hook ? {
+      coordinator: hook.readCoordinatorPosition(),
+      source: hook.readSourcePosition(),
+    } : null;
+  });
+  const matchesPosition = (
+    actual: LogicalPosition | null,
+    expected: LogicalPosition,
+  ) => Boolean(actual
+    && Math.abs(actual.line - expected.line) < 0.02
+    && Math.abs(actual.offset - expected.offset) < 0.03);
+
   const source = page.locator('.cm-scroller');
-  await source.evaluate(element => { element.scrollTop = element.scrollHeight * 0.55; element.dispatchEvent(new Event('scroll')); });
-  await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const preview = page.locator('.markdown-preview');
+  await source.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(async () => (await readScrollState())?.coordinator.line ?? 0)
+    .toBeGreaterThan(0);
+  const initialState = await readScrollState();
+  expect(initialState).not.toBeNull();
+  if (!initialState) throw new Error('Scroll debug hook is unavailable');
+  expect(matchesPosition(initialState.source, initialState.coordinator)).toBe(true);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
 
-  // Source and Live use the same editor surface; mode changes must not
-  // reset its viewport or break synchronization with the reading Preview.
+  // Keep this restoration test independent from line wrapping: wrapping has
+  // its own focused test above. This test isolates per-note position ownership
+  // and mode synchronization without changing source line block heights.
   await page.getByRole('tab', { name: 'Live' }).click();
-  await expect.poll(() => source.evaluate(element => element.scrollTop))
-    .toBeGreaterThan(initialSourceTop * 0.8);
+  await expect(page.locator('.editor-main.live-mode')).toBeVisible();
+  await expect.poll(async () => {
+    const next = await readScrollState();
+    return Boolean(next
+      && matchesPosition(next.coordinator, initialState.coordinator)
+      && matchesPosition(next.source, initialState.coordinator));
+  }).toBe(true);
+  await expect(preview).toBeVisible();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+  const previewTopBeforeSourceScroll = await preview.evaluate(element => element.scrollTop);
   await source.evaluate(element => {
     element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.65;
     element.dispatchEvent(new Event('scroll'));
   });
-  const livePreviewTop = await source.evaluate(element => element.scrollTop);
+  await expect.poll(() => preview.evaluate(element => element.scrollTop))
+    .not.toBe(previewTopBeforeSourceScroll);
+  await expect.poll(async () => {
+    const before = await preview.evaluate(element => element.scrollTop);
+    await page.waitForTimeout(50);
+    const after = await preview.evaluate(element => element.scrollTop);
+    return Math.abs(after - before) < 0.5;
+  }).toBe(true);
+
+  const liveState = await readScrollState();
+  expect(liveState).not.toBeNull();
+  if (!liveState) throw new Error('Scroll debug hook is unavailable');
+  expect(matchesPosition(liveState.source, liveState.coordinator)).toBe(true);
+  const liveLogicalPosition = liveState.coordinator;
+
   await page.getByRole('tab', { name: 'Source' }).click();
-  await expect.poll(() => source.evaluate(element => element.scrollTop))
-    .toBeGreaterThan(livePreviewTop * 0.8);
+  await expect(page.locator('.editor-main.live-mode')).toHaveCount(0);
+  await page.waitForFunction(() => {
+    const scroller = document.querySelector('.cm-scroller');
+    return scroller instanceof HTMLElement && scroller.clientWidth > 0;
+  });
+  await expect.poll(async () => {
+    const next = await readScrollState();
+    return Boolean(next
+      && matchesPosition(next.coordinator, liveLogicalPosition)
+      && matchesPosition(next.source, liveLogicalPosition));
+  }).toBe(true);
 
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(2);
@@ -146,7 +237,6 @@ test('restores one logical scroll position per note across Source and Preview', 
     .toBeGreaterThan(initialSourceTop * 0.8);
 
   await page.getByRole('tab', { name: 'Preview', exact: true }).click();
-  const preview = page.locator('.markdown-preview');
   await expect(preview).toBeVisible();
   await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
@@ -168,7 +258,6 @@ test('restores one logical scroll position per note across Source and Preview', 
   await expect.poll(() => preview.evaluate(element => element.scrollTop))
     .toBeGreaterThan(savedPreviewTop * 0.8);
 });
-
 test('Ctrl+I applies italic formatting to the selected text', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('selected text');

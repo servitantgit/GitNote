@@ -55,15 +55,15 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Editor
 
-- CodeMirror 6 with Source, Live and Preview modes.
+- CodeMirror 6 with Source, Live and Preview modes. Long Markdown lines wrap in the editable Source pane in both Source and Live modes; horizontal scrolling is not required for ordinary prose.
 - Markdown language extension and basic editor facilities: line numbers, fold gutter, active line, bracket matching, close brackets, autocomplete and indentation.
 - Formatting toolbar: bold, italic, strikethrough, inline code, link, H1/H2, bullet/numbered lists, quote, horizontal rule, undo and redo.
 - Keyboard shortcuts for common inline formatting.
 - Preview uses Marked with GFM and DOMPurify sanitization.
 - Live keeps Markdown source editing and rendered output visible together; Markdown formatting is handled by the rendered Preview pane.
 - A map keyed by document ID retains CodeMirror EditorState between tab switches, including undo history and selection. Scroll position has one owner: the logical per-document position map and scroll coordinator. CodeMirror and Preview adapters restore that shared position, avoiding competing native and logical restoration mechanisms.
-- An in-memory map keyed by document ID stores a logical document line and fractional offset for cross-surface mode switches (it is not a browser-reload persistence feature). `src/modules/editor/navigation/scroll-position.ts` adapts this position to CodeMirror 6 and rendered Preview; Lezer-derived headings and image blocks are anchors for content-aware mapping, with proportional fallback.
-- `src/modules/editor/navigation/scroll-coordinator.ts` owns scroll-surface registration, bidirectional propagation, echo suppression, retaining the last scroll-event position on detach without re-reading a surface that React may already have hidden or reused, CodeMirror restoration scheduled through its measurement cycle after layout, and the shared `scrollTo`/`subscribe` contract. The Minimap component uses this contract to control and observe scrolling without owning a second synchronization implementation.
+- An in-memory map keyed by document ID stores a logical document line and fractional offset for cross-surface mode switches (it is not a browser-reload persistence feature). `src/modules/editor/navigation/scroll-position.ts` adapts this position to CodeMirror 6 and rendered Preview; Lezer-derived paragraph, heading and image blocks are anchors for content-aware mapping, with proportional fallback only when rendered blocks cannot be matched.
+- `src/modules/editor/navigation/scroll-coordinator.ts` owns scroll-surface registration, bidirectional propagation, echo suppression, retaining the last scroll-event position on detach without re-reading a surface that React may already have hidden or reused, CodeMirror restoration scheduled through its measurement cycle after layout, and the shared `scrollTo`/`subscribe` contract. The Minimap component uses this contract to control and observe scrolling without owning a second synchronization implementation. The CodeMirror adapter restores logical positions through CodeMirror's measurement cycle after layout. Cross-mode restoration tests use stable line geometry; line wrapping is covered independently by a focused Source/Live overflow test.
 - The canvas minimap is implemented as an optional desktop panel. It shows Markdown structure, cursor and logical viewport; clicking or dragging it drives all registered surfaces through the existing scroll coordinator. The minimap is not shown by default and is hidden on narrow mobile layouts.
 - Live displays the editable Source and rendered Preview simultaneously. Both visible surfaces register with the existing per-document scroll coordinator. Outline, language-by-extension selection, wiki-link completion, search/replace UX, interactive preview checkboxes and image-management workflow are not implemented yet.
 
@@ -95,7 +95,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - npm run build: TypeScript project build and Vite production build.
 - GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium) and Production build jobs.
 - Playwright failure artifacts include HTML report, screenshots and traces.
-- Scroll regression coverage checks Source and Live continuity, Preview synchronization, independent positions for separate notes, Preview image-load/ResizeObserver notifications, Live's simultaneous bidirectional Source/Preview synchronization, and small fractional mouse-wheel increments in Live. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live and Preview.
+- Scroll regression coverage checks Source and Live continuity, Preview synchronization, independent positions for separate notes, Preview image-load/ResizeObserver notifications, Live's simultaneous bidirectional Source/Preview synchronization, and small fractional mouse-wheel increments in Live. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live and Preview. Line-wrapping coverage checks long lines in Source and Live and guards against horizontal overflow. Cross-mode scroll restoration compares the coordinator's logical position with the CodeMirror 6 adapter's `readPosition()` result through a development-only E2E hook; it does not infer editor position from DOM line geometry.
 - Do not mark a commit verified unless all three latest CI jobs pass.
 
 ## Roadmap and status
@@ -116,7 +116,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 ### Stage 1: editor core
 
 - [ ] Language mode selected by file extension.
-- [ ] Line wrapping.
+- [x] Line wrapping in Source and Live, enabled by default through CodeMirror 6.
 - [ ] Outline.
 - [x] Minimap with synchronized click/drag navigation and Chromium coverage.
 - [x] Live mode with side-by-side Source and Preview panes and bidirectional synchronized scrolling.

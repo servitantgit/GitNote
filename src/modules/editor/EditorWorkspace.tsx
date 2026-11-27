@@ -4,7 +4,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { redo, undo } from '@codemirror/commands';
 import { Prec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import type { EditorState } from '@codemirror/state';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -33,6 +33,18 @@ interface Props {
   content: string;
   onContentChange: (value: string) => void;
 }
+
+interface ScrollDebugHook {
+  readCoordinatorPosition: () => DocumentScrollPosition;
+  readSourcePosition: () => DocumentScrollPosition | null;
+}
+
+declare global {
+  interface Window {
+    __gitnoteScrollDebug?: ScrollDebugHook;
+  }
+}
+
 function applyInlineCommand(view: EditorView, before: string, after = before, placeholder = 'текст'): boolean {
   const { from, to } = view.state.selection.main;
   const result = wrapSelection(view.state.doc.toString(), { from, to }, before, after, placeholder);
@@ -84,6 +96,22 @@ export function EditorWorkspace({
     [documentId],
   );
 
+  useLayoutEffect(() => {
+    if (!(import.meta as ImportMeta & { env: { DEV: boolean } }).env.DEV) return;
+    const debugHook: ScrollDebugHook = {
+      readCoordinatorPosition: () => coordinator.getPosition(),
+      readSourcePosition: () => editorRef.current
+        ? createCodeMirrorScrollSurface(editorRef.current).readPosition()
+        : null,
+    };
+    window.__gitnoteScrollDebug = debugHook;
+    return () => {
+      if (window.__gitnoteScrollDebug === debugHook) {
+        delete window.__gitnoteScrollDebug;
+      }
+    };
+  }, [coordinator]);
+
   const attachSource = (view: EditorView) => {
     const current = sourceAttachmentRef.current;
     if (current?.coordinator === coordinator && current.view === view) return;
@@ -97,7 +125,7 @@ export function EditorWorkspace({
     };
   };
 
-  const extensions = useMemo(() => [markdown(), markdownKeymap], []);
+  const extensions = useMemo(() => [markdown(), markdownKeymap, EditorView.lineWrapping], []);
   const rendered = useMemo(() => mode === 'preview' || mode === 'live'
     ? DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string)
     : '', [content, mode]);
