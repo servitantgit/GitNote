@@ -26,6 +26,7 @@ import './editor.css';
 interface Props {
   documentId: string;
   editorStates: Map<string, EditorState>;
+  editorScrollSnapshots: Map<string, ReturnType<EditorView['scrollSnapshot']>>;
   scrollPosition?: DocumentScrollPosition;
   onScrollPositionChange: (documentId: string, position: DocumentScrollPosition) => void;
   mode: EditorMode;
@@ -60,6 +61,7 @@ const modes: { id: EditorMode; label: string }[] = [
 export function EditorWorkspace({
   documentId,
   editorStates,
+  editorScrollSnapshots,
   scrollPosition,
   onScrollPositionChange,
   mode,
@@ -89,7 +91,17 @@ export function EditorWorkspace({
     sourceAttachmentRef.current = {
       coordinator,
       view,
-      detach: coordinator.register(createCodeMirrorScrollSurface(view)),
+      detach: (() => {
+        const saveSnapshot = () => editorScrollSnapshots.set(documentId, view.scrollSnapshot());
+        view.scrollDOM.addEventListener('scroll', saveSnapshot, { passive: true });
+        const unregister = coordinator.register(createCodeMirrorScrollSurface(view));
+        saveSnapshot();
+        return () => {
+          saveSnapshot();
+          view.scrollDOM.removeEventListener('scroll', saveSnapshot);
+          unregister();
+        };
+      })(),
     };
   };
 
@@ -209,13 +221,18 @@ export function EditorWorkspace({
           extensions={extensions}
           editable
           onChange={onContentChange}
-          onUpdate={update => { editorStates.set(documentId, update.state); }}
+          onUpdate={update => {
+            editorStates.set(documentId, update.state);
+            editorScrollSnapshots.set(documentId, update.view.scrollSnapshot());
+          }}
           onCreateEditor={view => {
             editorRef.current = view;
+            const savedScrollSnapshot = editorScrollSnapshots.get(documentId);
             const savedState = editorStates.get(documentId);
             if (savedState) view.setState(savedState);
             editorStates.set(documentId, view.state);
             attachSource(view);
+            if (savedScrollSnapshot) view.dispatch({ effects: savedScrollSnapshot });
           }}
           basicSetup={{
             lineNumbers: true,
