@@ -157,21 +157,44 @@ test('Source mouse selection targets the clicked word on each Markdown line', as
 
   await editor.fill(source);
 
-  async function selectPhrase(phrase: string) {
-    const point = await editor.evaluate((element, target) => {
+  async function selectPhrase(phrase: string, occurrence = 0) {
+    const point = await editor.evaluate((element, args) => {
       const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
       let node: Node | null;
+      let combined = '';
       while ((node = walker.nextNode())) {
-        const index = node.textContent?.indexOf(target) ?? -1;
-        if (index < 0) continue;
-        const range = document.createRange();
-        range.setStart(node, index);
-        range.setEnd(node, index + target.length);
-        const rect = range.getBoundingClientRect();
-        return { startX: rect.left + 1, endX: rect.right - 1, y: rect.top + rect.height / 2 };
+        const textNode = node as Text;
+        nodes.push(textNode);
+        combined += textNode.data;
       }
-      throw new Error(`Target phrase not found: ${target}`);
-    }, phrase);
+
+      let index = -1;
+      let searchFrom = 0;
+      for (let found = 0; found <= args.occurrence; found += 1) {
+        index = combined.indexOf(args.phrase, searchFrom);
+        if (index < 0) throw new Error(`Target phrase not found: ${args.phrase}`);
+        searchFrom = index + args.phrase.length;
+      }
+
+      function locate(offset: number) {
+        let consumed = 0;
+        for (const textNode of nodes) {
+          const next = consumed + textNode.data.length;
+          if (offset <= next) return { node: textNode, offset: offset - consumed };
+          consumed = next;
+        }
+        throw new Error(`Text offset out of range: ${offset}`);
+      }
+
+      const from = locate(index);
+      const to = locate(index + args.phrase.length);
+      const range = document.createRange();
+      range.setStart(from.node, from.offset);
+      range.setEnd(to.node, to.offset);
+      const rect = range.getBoundingClientRect();
+      return { startX: rect.left + 1, endX: rect.right - 1, y: rect.top + rect.height / 2 };
+    }, { phrase, occurrence });
 
     await page.mouse.move(point.startX, point.y);
     await page.mouse.down();
@@ -181,8 +204,8 @@ test('Source mouse selection targets the clicked word on each Markdown line', as
     expect(selected).toBe(phrase);
   }
 
-  await selectPhrase('редагування');
-  await selectPhrase('редагування з форматуванням');
-  await selectPhrase('режим читання');
+  await selectPhrase('редагування', 0);
+  await selectPhrase('редагування', 1);
+  await selectPhrase('читання');
   await expect(editor).toContainText(source);
 });
