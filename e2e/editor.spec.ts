@@ -141,3 +141,48 @@ test('mouse selection in Source keeps text and selects the intended phrase', asy
   const selected = await editor.evaluate(() => window.getSelection()?.toString() ?? '');
   expect(selected).toContain('select this phrase');
 });
+
+
+test('Source mouse selection targets the clicked word on each Markdown line', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  const source = [
+    '# Моя перша нотатка',
+    '',
+    'GitNotes — робочий простір для нотаток і документів із Git-контролем версій.',
+    '',
+    '- Source: редагування Markdown',
+    '- Live Preview: редагування з форматуванням',
+    '- Preview: режим читання',
+  ].join('\\n');
+
+  await editor.fill(source);
+
+  async function selectPhrase(phrase: string) {
+    const point = await editor.evaluate((element, target) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        const index = node.textContent?.indexOf(target) ?? -1;
+        if (index < 0) continue;
+        const range = document.createRange();
+        range.setStart(node, index);
+        range.setEnd(node, index + target.length);
+        const rect = range.getBoundingClientRect();
+        return { startX: rect.left + 1, endX: rect.right - 1, y: rect.top + rect.height / 2 };
+      }
+      throw new Error(`Target phrase not found: ${target}`);
+    }, phrase);
+
+    await page.mouse.move(point.startX, point.y);
+    await page.mouse.down();
+    await page.mouse.move(point.endX, point.y, { steps: 6 });
+    await page.mouse.up();
+    const selected = await editor.evaluate(() => window.getSelection()?.toString() ?? '');
+    expect(selected).toBe(phrase);
+  }
+
+  await selectPhrase('редагування');
+  await selectPhrase('редагування з форматуванням');
+  await selectPhrase('режим читання');
+  await expect(editor).toContainText(source);
+});
