@@ -71,8 +71,9 @@ test('switching notes resets CodeMirror undo history', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await editor.fill('Content belonging to note B');
 
-  await page.getByRole('button', { name: 'Моя перша нотатка' }).click();
-  await page.getByRole('button', { name: 'Без назви' }).click();
+  await page.getByRole('list', { name: 'Список нотаток' })
+    .getByRole('button', { name: 'Моя перша нотатка', exact: true }).click();
+  await page.getByRole('tab', { name: 'Без назви', exact: true }).click();
   await editor.press('Control+z');
 
   await expect(editor).toContainText('Content belonging to note B');
