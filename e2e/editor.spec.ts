@@ -289,6 +289,54 @@ test('keeps independent scroll positions for two notes across all editor modes',
 });
 
 
+
+test('Split shows Source and Preview together with bidirectional synchronized scrolling', async ({ page }) => {
+  const content = Array.from({ length: 100 }, (_, index) =>
+    `## Split section ${index + 1}\n\nParagraph ${index + 1} with enough text to create a scrollable rendered preview and editor surface.`,
+  ).join('\n\n');
+  const editor = page.locator('.cm-content');
+  await editor.fill(content);
+  await page.getByRole('tab', { name: 'Split', exact: true }).click();
+
+  const split = page.locator('.editor-main.split-mode');
+  const source = page.locator('.cm-scroller');
+  const preview = page.locator('.markdown-preview');
+  await expect(split).toBeVisible();
+  await expect(source).toBeVisible();
+  await expect(preview).toBeVisible();
+  await expect(preview.locator('h2').first()).toHaveText('Split section 1');
+
+  const widths = await Promise.all([
+    page.locator('.source-editor').evaluate(element => element.getBoundingClientRect().width),
+    preview.evaluate(element => element.getBoundingClientRect().width),
+  ]);
+  expect(Math.abs(widths[0] - widths[1])).toBeLessThan(12);
+
+  await editor.fill(content + '\n\n## Newly edited section');
+  await expect(preview.locator('h2').last()).toHaveText('Newly edited section');
+
+  await source.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.68;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const sourceBeforeReverse = await source.evaluate(element => element.scrollTop);
+
+  await preview.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.24;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(async () => Math.abs(
+    (await source.evaluate(element => element.scrollTop)) - sourceBeforeReverse,
+  )).toBeGreaterThan(100);
+
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect(preview).toBeVisible();
+  await page.getByRole('tab', { name: 'Source' }).click();
+  await expect(editor).toContainText('Newly edited section');
+});
+
 test('minimap follows the active editor surface and drives synchronized scrolling', async ({ page }) => {
   const content = Array.from({ length: 90 }, (_, index) =>
     '## Section ' + (index + 1) + '\n\nParagraph ' + (index + 1) + ' with enough content to create a scrollable document.',

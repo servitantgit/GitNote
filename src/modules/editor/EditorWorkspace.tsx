@@ -135,7 +135,7 @@ export function EditorWorkspace({
         previewAttachmentRef.current = null;
       }
     };
-  }, [coordinator, mode, mode === 'preview' ? content : null]);
+  }, [coordinator, mode, mode === 'preview' || mode === 'split' ? content : null]);
 
   // Surface listeners are detached by the effect above. Do not terminally destroy
   // this memoized coordinator here: React StrictMode replays effect cleanup/setup

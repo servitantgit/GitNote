@@ -1,1 +1,1 @@
-export type EditorMode = 'source' | 'live-preview' | 'preview';
+export type EditorMode = 'source' | 'live-preview' | 'preview' | 'split';

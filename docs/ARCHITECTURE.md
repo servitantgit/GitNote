@@ -11,7 +11,7 @@
 ## Current implementation
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
-- `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation.
+- `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview, Preview and simultaneous 50/50 Split modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
 - `src/core/domain/workspace-file-system.ts`: repository-scoped virtual file tree contract, path validation and path helpers.
@@ -30,7 +30,7 @@
 - The logical per-document scroll position is the single source of truth across tab switches and editor modes. The coordinator maps positions between Source/Live Preview and rendered Preview; Preview translates between rendered pixels and logical document lines using heading/image anchors, with a proportional fallback where no anchors exist. Native CodeMirror scroll snapshots are not used, avoiding competing restoration owners.
 - `src/modules/editor/Minimap.tsx` renders a canvas minimap beside the active editor surface. It uses Lezer Markdown syntax-tree ranges for heading, code and list marks, displays the logical viewport/cursor, and sends click/drag navigation through the existing per-document scroll coordinator. It does not own scroll synchronization or persist separate position state.
 - The minimap is optional, hidden by default and available on desktop; its toggle and panel are hidden on narrow mobile layouts. Chromium coverage exercises click navigation in Source, Live Preview and Preview, plus dragging in Preview.
-- A simultaneous Split-pane layout is not implemented yet. It must use the existing scroll coordinator rather than introduce a parallel scroll-sync mechanism.
+- Split mode keeps the same CodeMirror Source surface and rendered Preview mounted side by side at equal widths. Both register with the existing per-document scroll coordinator, so scrolling either pane updates the other without a second synchronization mechanism. Switching modes retains the same editor instance and per-tab EditorState.
 - Editor content is read and written through the `DocumentSource` contract. The current implementation is `LocalIndexedDbDocumentSource`; it performs no network or Git operations.
 - Document metadata carries an optional repository-relative `path`, optional remote `baseSha`, and `syncState` (`local`, `clean`, `dirty` or `conflict`).
 
@@ -44,7 +44,7 @@ Every feature change must include regression coverage appropriate to its behavio
 - CI runs unit tests, Chromium browser tests and the production build independently. A change is not considered verified until all three jobs pass.
 - Bug fixes should add a regression test that fails before the fix and passes after it.
 - Browser-test failures retain traces/screenshots as CI artifacts to make diagnosis reproducible.
-- Scroll regression coverage exercises Source/Live Preview/Preview transitions, independent per-note positions, Preview image-load/resize notifications, and minimap click/drag navigation across all three editor modes.
+- Scroll regression coverage exercises Source/Live Preview/Preview transitions, Split's simultaneous bidirectional synchronization, independent per-note positions, Preview image-load/resize notifications, and minimap click/drag navigation across all three single-pane editor modes.
 
 ## Workspace manager and UI integration
 
