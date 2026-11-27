@@ -64,7 +64,8 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - A map keyed by document ID retains CodeMirror EditorState between tab switches, including undo history and selection. Scroll position has one owner: the logical per-document position map and scroll coordinator. CodeMirror and Preview adapters restore that shared position, avoiding competing native and logical restoration mechanisms.
 - An in-memory map keyed by document ID stores a logical document line and fractional offset for cross-surface mode switches (it is not a browser-reload persistence feature). `src/modules/editor/navigation/scroll-position.ts` adapts this position to CodeMirror 6 and rendered Preview; Lezer-derived headings and image blocks are anchors for content-aware mapping, with proportional fallback.
 - `src/modules/editor/navigation/scroll-coordinator.ts` owns scroll-surface registration, bidirectional propagation, echo suppression, retaining the last scroll-event position on detach without re-reading a surface that React may already have hidden or reused, CodeMirror restoration scheduled through its measurement cycle after layout, and the shared `scrollTo`/`subscribe` contract. The API allows a future minimap to control and observe scrolling without owning a second synchronization implementation.
-- No split-pane editor, minimap UI, Outline, language-by-extension selection, wiki-link completion, search/replace UX, interactive preview checkboxes or image-management workflow yet. The scroll coordinator is ready to accept a minimap as a scroll controller, but the minimap itself is not implemented.
+- The canvas minimap is implemented as an optional desktop panel. It shows Markdown structure, cursor and logical viewport; clicking or dragging it drives all registered surfaces through the existing scroll coordinator. The minimap is not shown by default and is hidden on narrow mobile layouts.
+- No split-pane editor, Outline, language-by-extension selection, wiki-link completion, search/replace UX, interactive preview checkboxes or image-management workflow yet.
 
 ### Document domain and storage
 
@@ -117,7 +118,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [ ] Language mode selected by file extension.
 - [ ] Line wrapping.
 - [ ] Outline.
-- [ ] Minimap.
+- [x] Minimap with synchronized click/drag navigation and Chromium coverage.
 - [ ] Separate 50/50 Split mode with synchronized scrolling.
 - [ ] Interactive task-list checkboxes that update Markdown source.
 - [ ] [[ suggestions.

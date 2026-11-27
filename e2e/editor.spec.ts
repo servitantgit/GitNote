@@ -287,3 +287,42 @@ test('keeps independent scroll positions for two notes across all editor modes',
   await page.getByRole('tab', { name: 'Preview', exact: true }).click();
   await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 });
+
+
+test('minimap follows the active editor surface and drives synchronized scrolling', async ({ page }) => {
+  const content = Array.from({ length: 90 }, (_, index) =>
+    '## Section ' + (index + 1) + '\n\nParagraph ' + (index + 1) + ' with enough content to create a scrollable document.',
+  ).join('\n\n');
+  await page.locator('.cm-content').fill(content);
+
+  await page.getByRole('button', { name: 'Показати мінімапу' }).click();
+  const minimap = page.getByRole('img', { name: 'Мінімапа документа' });
+  await expect(minimap).toBeVisible();
+
+  const bounds = await minimap.boundingBox();
+  expect(bounds).not.toBeNull();
+  const source = page.locator('.cm-scroller');
+  await minimap.click({ position: { x: 45, y: Math.floor((bounds?.height ?? 1) * 0.78) } });
+  await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  const preview = page.locator('.markdown-preview');
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+  const previewBounds = await minimap.boundingBox();
+  expect(previewBounds).not.toBeNull();
+  await minimap.click({ position: { x: 45, y: Math.floor((previewBounds?.height ?? 1) * 0.32) } });
+  const previewMax = await preview.evaluate(element => element.scrollHeight - element.clientHeight);
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeLessThan(previewMax * 0.6);
+
+  const dragStart = { x: (previewBounds?.x ?? 0) + 45, y: (previewBounds?.y ?? 0) + 20 };
+  const dragEnd = { x: dragStart.x, y: (previewBounds?.y ?? 0) + (previewBounds?.height ?? 1) * 0.7 };
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(previewMax * 0.4);
+
+  await page.getByRole('button', { name: 'Приховати мінімапу' }).click();
+  await expect(minimap).toBeHidden();
+});

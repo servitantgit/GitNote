@@ -28,7 +28,8 @@
 - Undo/redo use CodeMirror history. CodeMirror's standard editing keymaps and search panel remain available.
 - Preview renders GitHub-Flavored Markdown through Marked and sanitizes generated HTML with DOMPurify before insertion.
 - The logical per-document scroll position is the single source of truth across tab switches and editor modes. The coordinator maps positions between Source/Live Preview and rendered Preview; Preview translates between rendered pixels and logical document lines using heading/image anchors, with a proportional fallback where no anchors exist. Native CodeMirror scroll snapshots are not used, avoiding competing restoration owners.
-- A minimap UI and simultaneous Split-pane layout are not implemented yet. They must use the existing scroll coordinator rather than introduce a parallel scroll-sync mechanism.
+- `src/modules/editor/Minimap.tsx` renders a canvas minimap beside the active editor surface. It uses Lezer Markdown syntax-tree ranges for heading, code and list marks, displays the logical viewport/cursor, and sends click/drag navigation through the existing per-document scroll coordinator. It does not own scroll synchronization or persist separate position state.
+- A simultaneous Split-pane layout is not implemented yet. It must use the existing scroll coordinator rather than introduce a parallel scroll-sync mechanism.
 - Editor content is read and written through the `DocumentSource` contract. The current implementation is `LocalIndexedDbDocumentSource`; it performs no network or Git operations.
 - Document metadata carries an optional repository-relative `path`, optional remote `baseSha`, and `syncState` (`local`, `clean`, `dirty` or `conflict`).
 
