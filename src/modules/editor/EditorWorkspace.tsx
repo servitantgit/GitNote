@@ -4,7 +4,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { redo, undo } from '@codemirror/commands';
 import { Prec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import type { EditorState } from '@codemirror/state';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -97,7 +97,7 @@ export function EditorWorkspace({
     };
   };
 
-  const extensions = useMemo(() => [markdown(), markdownKeymap], []);
+  const extensions = useMemo(() => [markdown(), markdownKeymap, EditorView.lineWrapping], []);
   const rendered = useMemo(() => mode === 'preview' || mode === 'live'
     ? DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string)
     : '', [content, mode]);

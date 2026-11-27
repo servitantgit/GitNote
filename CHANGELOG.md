@@ -5,6 +5,7 @@ All notable changes to GitNotes are documented here.
 ## [Unreleased]
 
 ### Added
+- Default line wrapping for long Markdown source lines in Source and Live modes, with Chromium regression coverage for horizontal overflow.
 - Desktop minimap for Markdown documents, with Lezer-based structure marks, cursor and viewport indicators, and click/drag navigation synchronized across Source, Live and Preview.
 - Chromium regression coverage for minimap navigation in all three editor modes.
 - Live mode with editable Source and rendered Preview panes side by side, using the existing bidirectional scroll coordinator.

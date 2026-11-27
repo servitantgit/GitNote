@@ -55,7 +55,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Editor
 
-- CodeMirror 6 with Source, Live and Preview modes.
+- CodeMirror 6 with Source, Live and Preview modes. Long Markdown lines wrap in the editable Source pane in both Source and Live modes; horizontal scrolling is not required for ordinary prose.
 - Markdown language extension and basic editor facilities: line numbers, fold gutter, active line, bracket matching, close brackets, autocomplete and indentation.
 - Formatting toolbar: bold, italic, strikethrough, inline code, link, H1/H2, bullet/numbered lists, quote, horizontal rule, undo and redo.
 - Keyboard shortcuts for common inline formatting.
@@ -95,7 +95,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - npm run build: TypeScript project build and Vite production build.
 - GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium) and Production build jobs.
 - Playwright failure artifacts include HTML report, screenshots and traces.
-- Scroll regression coverage checks Source and Live continuity, Preview synchronization, independent positions for separate notes, Preview image-load/ResizeObserver notifications, Live's simultaneous bidirectional Source/Preview synchronization, and small fractional mouse-wheel increments in Live. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live and Preview.
+- Scroll regression coverage checks Source and Live continuity, Preview synchronization, independent positions for separate notes, Preview image-load/ResizeObserver notifications, Live's simultaneous bidirectional Source/Preview synchronization, and small fractional mouse-wheel increments in Live. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live and Preview. Line-wrapping coverage checks long lines in Source and Live and guards against horizontal overflow.
 - Do not mark a commit verified unless all three latest CI jobs pass.
 
 ## Roadmap and status
@@ -116,7 +116,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 ### Stage 1: editor core
 
 - [ ] Language mode selected by file extension.
-- [ ] Line wrapping.
+- [x] Line wrapping in Source and Live, enabled by default through CodeMirror 6.
 - [ ] Outline.
 - [x] Minimap with synchronized click/drag navigation and Chromium coverage.
 - [x] Live mode with side-by-side Source and Preview panes and bidirectional synchronized scrolling.

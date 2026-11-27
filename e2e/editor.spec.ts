@@ -59,6 +59,35 @@ test('switches between Source, Live and Preview without losing content', async (
   await expect(editor).toContainText('**Updated text**');
 });
 
+test('wraps long Markdown lines in Source and Live without horizontal overflow', async ({ page }) => {
+  const longLine = Array.from({ length: 90 }, (_, index) => `word${index + 1}`).join(' ');
+  const editor = page.locator('.cm-content');
+  const scroller = page.locator('.cm-scroller');
+  await editor.fill(longLine);
+
+  const assertWrapped = async () => {
+    const metrics = await scroller.evaluate(element => {
+      const line = element.querySelector('.cm-line');
+      if (!line) return null;
+      return {
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        lineHeight: Number.parseFloat(getComputedStyle(line).lineHeight),
+        renderedHeight: line.getBoundingClientRect().height,
+      };
+    });
+    expect(metrics).not.toBeNull();
+    expect(metrics!.scrollWidth).toBeLessThanOrEqual(metrics!.clientWidth + 1);
+    expect(metrics!.renderedHeight).toBeGreaterThan(metrics!.lineHeight * 2);
+  };
+
+  await assertWrapped();
+  await page.getByRole('tab', { name: 'Live', exact: true }).click();
+  await expect(page.locator('.editor-main.live-mode')).toBeVisible();
+  await assertWrapped();
+  await expect(page.locator('.markdown-preview')).toContainText('word90');
+});
+
 test('applies Markdown formatting from the toolbar to the selected text', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('selected text');
