@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { WorkspaceSnapshot } from '../../core/domain/workspace';
-import type { DocumentRecord } from '../../core/domain/document-source';
+import type { BinaryDocumentRecord, DocumentRecord } from '../../core/domain/document-source';
 import { normalizeWorkspacePath, type WorkspaceFileNode } from '../../core/domain/workspace-file-system';
 
 export interface LocalDraft {
@@ -122,6 +122,13 @@ class GitNotesDatabase extends Dexie {
       }
 
       if (folders.size) await nodesTable.bulkPut([...folders.values()]);
+    });
+    this.version(6).stores({
+      drafts: 'id, repositoryId, path, updatedAt',
+      notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      workspaces: 'id, updatedAt',
+      fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
+      binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
     });
   }
 }

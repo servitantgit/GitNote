@@ -1,4 +1,5 @@
 import type { WorkspaceFileNode, WorkspaceFileSystem } from '../../core/domain/workspace-file-system';
+import type { BinaryDocumentRecord } from '../../core/domain/document-source';
 import { normalizeWorkspacePath, parentWorkspacePath, validateWorkspaceName, workspacePathName } from '../../core/domain/workspace-file-system';
 import { database } from './database';
 
@@ -73,6 +74,33 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
     });
   }
 
+  async createBinaryDocument(document: BinaryDocumentRecord, path: string): Promise<WorkspaceFileNode> {
+    const normalized = normalizeWorkspacePath(path);
+    if (!normalized) throw new Error('A document path is required.');
+    if (document.path && normalizeWorkspacePath(document.path) !== normalized) {
+      throw new Error('The document path does not match the requested workspace path.');
+    }
+    return database.transaction('rw', database.fileNodes, database.notes, database.binaryDocuments, async () => {
+      const nodes = await database.fileNodes.where('repositoryId').equals(document.repositoryId).toArray();
+      const parent = parentWorkspacePath(normalized);
+      assertParentFolder(nodes, parent);
+      if (nodes.some(node => node.path === normalized)) throw new Error(`Path already exists: ${normalized}`);
+      if (await database.notes.get(document.id) || await database.binaryDocuments.get(document.id)) {
+        throw new Error(`Document already exists: ${document.id}`);
+      }
+      const now = Date.now();
+      const record = { ...document, path: normalized, mediaType: document.content.type || document.mediaType, size: document.content.size, syncState: 'local' as const, updatedAt: now };
+      const node: WorkspaceFileNode = {
+        id: makeId(), repositoryId: document.repositoryId, path: normalized,
+        parentPath: parent, name: workspacePathName(normalized), kind: 'file',
+        documentId: document.id, createdAt: document.createdAt, updatedAt: now,
+      };
+      await database.binaryDocuments.add(record);
+      await database.fileNodes.add(node);
+      return node;
+    });
+  }
+
   async registerDocument(repositoryId: string, documentId: string, path: string): Promise<WorkspaceFileNode> {
     const normalized = normalizeWorkspacePath(path);
     if (!normalized) throw new Error('A document path is required.');
@@ -122,7 +150,7 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
 
   async remove(repositoryId: string, path: string): Promise<void> {
     const normalized = normalizeWorkspacePath(path);
-    await database.transaction('rw', database.fileNodes, database.notes, async () => {
+    await database.transaction('rw', database.fileNodes, database.notes, database.binaryDocuments, async () => {
       const nodes = await database.fileNodes.where('repositoryId').equals(repositoryId).toArray();
       const target = nodes.find(node => node.path === normalized);
       if (!target) return;
@@ -130,13 +158,14 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
       const documentIds = removed.flatMap(node => node.documentId ? [node.documentId] : []);
       await database.fileNodes.bulkDelete(removed.map(node => node.id));
       await database.notes.bulkDelete(documentIds);
+      await database.binaryDocuments.bulkDelete(documentIds);
     });
   }
 
   private async relocate(repositoryId: string, oldPath: string, newPath: string): Promise<void> {
     const normalizedNew = normalizeWorkspacePath(newPath);
     if (!normalizedNew) throw new Error('A destination path is required.');
-    await database.transaction('rw', database.fileNodes, database.notes, async () => {
+    await database.transaction('rw', database.fileNodes, database.notes, database.binaryDocuments, async () => {
       const nodes = await database.fileNodes.where('repositoryId').equals(repositoryId).toArray();
       const source = nodes.find(node => node.path === oldPath);
       if (!source) throw new Error(`Path not found: ${oldPath}`);
@@ -165,6 +194,12 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
             note.path = updatedPath;
             note.updatedAt = now;
             await database.notes.put(note);
+          }
+          const binaryDocument = await database.binaryDocuments.get(node.documentId);
+          if (binaryDocument) {
+            binaryDocument.path = updatedPath;
+            binaryDocument.updatedAt = now;
+            await database.binaryDocuments.put(binaryDocument);
           }
         }
       }

@@ -1,4 +1,4 @@
-import type { DocumentMeta, MutableDocumentSource } from '../../core/domain/document-source';
+import type { BinaryDocumentRecord, BinaryDocumentSource, DocumentMeta, MutableDocumentSource } from '../../core/domain/document-source';
 import { database } from './database';
 
 /** IndexedDB implementation. It never performs network or Git operations. */
@@ -44,3 +44,40 @@ export class LocalIndexedDbDocumentSource implements MutableDocumentSource {
 }
 
 export const documentSource: MutableDocumentSource = new LocalIndexedDbDocumentSource();
+
+/** IndexedDB storage for binary documents; content stays as a Blob, never decoded as text. */
+export class LocalIndexedDbBinaryDocumentSource implements BinaryDocumentSource {
+  async list(): Promise<Omit<BinaryDocumentRecord, 'content'>[]> {
+    const documents = await database.binaryDocuments.orderBy('updatedAt').reverse().toArray();
+    return documents.map(({ content: _content, ...meta }) => meta);
+  }
+
+  async read(id: string): Promise<BinaryDocumentRecord> {
+    const document = await database.binaryDocuments.get(id);
+    if (!document) throw new Error(`Binary document not found: ${id}`);
+    return document;
+  }
+
+  async write(id: string, content: Blob, baseSha?: string): Promise<{ sha?: string }> {
+    const document = await database.binaryDocuments.get(id);
+    if (!document) throw new Error(`Binary document not found: ${id}`);
+    document.content = content;
+    document.size = content.size;
+    document.mediaType = content.type || document.mediaType;
+    if (baseSha !== undefined) document.baseSha = baseSha;
+    document.syncState = document.syncState === 'conflict' ? 'conflict' : 'local';
+    document.updatedAt = Date.now();
+    await database.binaryDocuments.put(document);
+    return {};
+  }
+
+  async remove(id: string): Promise<void> {
+    await database.binaryDocuments.delete(id);
+  }
+
+  async create(document: BinaryDocumentRecord): Promise<void> {
+    await database.binaryDocuments.add(document);
+  }
+}
+
+export const binaryDocumentSource: BinaryDocumentSource = new LocalIndexedDbBinaryDocumentSource();

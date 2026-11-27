@@ -76,16 +76,16 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 `src/core/domain/document-format.ts` classifies Markdown, HTML, DOCX, XLSX, PPTX, PDF, text, CSV, common image/audio/video formats and archives. Recognized filename extensions take precedence over MIME metadata; MIME lookup is used when the filename has no recognized extension. This is a detection contract only and does not imply that a viewer/editor for every listed format is implemented.
 
 
-- `src/core/domain/document-source.ts` defines DocumentSource, document metadata/records, attachment metadata and sync-state types.
-- `src/infrastructure/storage/local-document-source.ts` implements local document CRUD through Dexie.
+- `src/core/domain/document-source.ts` defines the text DocumentSource, binary document storage contracts, document metadata/records, attachment metadata and sync-state types.
+- `src/infrastructure/storage/local-document-source.ts` implements local text document CRUD and Blob-preserving binary document CRUD through Dexie.
 - Document metadata includes repository ID, optional relative path, optional baseSha, and sync state: local, clean, dirty or conflict.
 - `src/core/domain/workspace-file-system.ts` defines VFS contracts and path helpers.
 - `src/infrastructure/storage/local-workspace-file-system.ts` implements local folder/file listing, folder creation, document registration, rename, move and recursive deletion.
-- File/folder nodes live in Dexie fileNodes; file nodes reference documents by stable document ID.
+- File/folder nodes live in Dexie fileNodes; file nodes reference text or binary documents by stable document ID.
 - Folder/file rename and move update descendant paths and linked document metadata in one IndexedDB transaction.
 - Removing a file/folder removes linked documents from local note storage.
-- Existing notes are migrated into a Notes directory with stable document IDs. The Dexie schema is currently version 5; migrations are additive and retain the existing gitnote-local database.
-- Attachment metadata shape exists, but attachment bytes, lifecycle operations, UI and preview handlers are not implemented.
+- Existing notes are migrated into a Notes directory with stable document IDs. Dexie schema version 6 adds a separate `binaryDocuments` table; the migration is additive and retains the existing gitnote-local database.
+- Binary workspace file storage now preserves imported bytes as Blob records, separate from text notes. File import UI and format viewers/editors are not implemented yet. Attachment metadata shape exists, but note-scoped attachment ownership/lifecycle and UI remain unimplemented.
 
 ### Workspace model
 
@@ -153,6 +153,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 The goal is format-appropriate experiences within one workspace, not a single Markdown editor with file previews bolted on.
 
 - [ ] Shared document-opening contract and format capability model (view, edit, import, export, print), without assuming every format supports every operation.
+- [x] Separate Blob-preserving IndexedDB storage for binary workspace documents, including atomic VFS registration, path updates and recursive deletion.
 - [ ] PDF viewer and defined PDF interaction scope.
 - [ ] DOCX viewer and editing strategy.
 - [ ] XLSX viewer and editing strategy.
@@ -177,6 +178,7 @@ Only after editor and local workspace foundations are ready:
 ## Known limitations and cautions
 
 - The visible UI is still a flat notes list, not the VFS tree.
+- Binary document persistence and VFS lifecycle are implemented, but no user-facing file import/open workflow exists yet.
 - Local VFS operations exist as a storage/domain service; they are not yet exposed as normal user-facing file manager workflows.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
 - Attachments are metadata-only at this stage.

@@ -540,3 +540,51 @@ test('updates the document outline when Markdown headings are edited', async ({ 
   await expect(outline.getByRole('button', { name: 'Updated heading' })).toBeVisible();
   await expect(outline.getByRole('button', { name: 'Original heading' })).toHaveCount(0);
 });
+
+test('stores binary workspace documents as Blobs and updates their VFS lifecycle atomically', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { workspaceFileSystem } = await import('/src/infrastructure/storage/local-workspace-file-system.ts');
+    const { binaryDocumentSource } = await import('/src/infrastructure/storage/local-document-source.ts');
+    const { database } = await import('/src/infrastructure/storage/database.ts');
+    const repositoryId = 'local-workspace';
+    const id = crypto.randomUUID();
+    const folder = 'Office test';
+    await workspaceFileSystem.createFolder(repositoryId, '', folder);
+    const original = new Blob(['original office bytes'], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+    const now = Date.now();
+    await workspaceFileSystem.createBinaryDocument({
+      id, repositoryId, title: 'Quarterly report', path: `${folder}/Quarterly report.docx`,
+      syncState: 'local', createdAt: now, updatedAt: now, content: original,
+      mediaType: original.type, size: original.size,
+    }, `${folder}/Quarterly report.docx`);
+
+    const stored = await binaryDocumentSource.read(id);
+    const originalText = await stored.content.text();
+    const replacement = new Blob(['edited office bytes'], { type: original.type });
+    await binaryDocumentSource.write(id, replacement);
+    await workspaceFileSystem.rename(repositoryId, `${folder}/Quarterly report.docx`, 'Final report.docx');
+    const renamed = await binaryDocumentSource.read(id);
+    const nodeAfterRename = await database.fileNodes.where('[repositoryId+path]')
+      .equals([repositoryId, `${folder}/Final report.docx`]).first();
+
+    await workspaceFileSystem.remove(repositoryId, folder);
+    const removed = await database.binaryDocuments.get(id);
+    const remainingNodes = await database.fileNodes.where('repositoryId').equals(repositoryId)
+      .filter(node => node.path === folder || node.path.startsWith(`${folder}/`)).count();
+
+    return {
+      originalText, updatedText: await renamed.content.text(), storedSize: renamed.size,
+      renamedPath: renamed.path, nodeLinked: nodeAfterRename?.documentId === id,
+      removed: removed === undefined, remainingNodes,
+    };
+  });
+
+  expect(result).toEqual({
+    originalText: 'original office bytes', updatedText: 'edited office bytes',
+    storedSize: new Blob(['edited office bytes']).size,
+    renamedPath: 'Office test/Final report.docx', nodeLinked: true,
+    removed: true, remainingNodes: 0,
+  });
+});
