@@ -1,5 +1,5 @@
 import { markdownLanguage } from '@codemirror/lang-markdown';
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 
 export interface DocumentScrollPosition {
   /** Zero-based document line at the top edge of the viewport. */
@@ -137,24 +137,27 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
       }, lineCount);
     },
     scrollToPosition(position) {
-      view.requestMeasure({
-        key: view,
-        read: () => {
-          const normalized = normalizeScrollPosition(position, view.state.doc.lines);
-          const line = view.state.doc.line(normalized.line + 1);
-          const block = view.lineBlockAt(line.from);
-          const height = Math.max(1, block.bottom - block.top);
-          const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
-          const currentDocumentOffset = viewportTop - view.documentTop;
-          return {
-            currentDocumentOffset,
-            targetDocumentOffset: block.top + height * normalized.offset,
-          };
-        },
-        write: ({ currentDocumentOffset, targetDocumentOffset }) => {
-          view.scrollDOM.scrollTop += targetDocumentOffset - currentDocumentOffset;
-        },
+      const normalized = normalizeScrollPosition(position, view.state.doc.lines);
+      const lineNumber = normalized.line + 1;
+      const line = view.state.doc.line(lineNumber);
+      view.dispatch({
+        effects: EditorView.scrollIntoView(line.from, { y: 'start', yMargin: 0 }),
       });
+
+      if (normalized.offset > 0) {
+        view.requestMeasure({
+          key: view,
+          read: () => {
+            const currentLine = view.state.doc.line(Math.min(lineNumber, view.state.doc.lines));
+            const block = view.lineBlockAt(currentLine.from);
+            const height = Math.max(1, block.bottom - block.top);
+            const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
+            const currentDocumentOffset = viewportTop - view.documentTop;
+            return block.top + height * normalized.offset - currentDocumentOffset;
+          },
+          write: delta => { view.scrollDOM.scrollTop += delta; },
+        });
+      }
     },
     subscribe(listener) {
       view.scrollDOM.addEventListener('scroll', listener, { passive: true });
