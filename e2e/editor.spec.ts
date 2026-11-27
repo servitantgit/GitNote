@@ -37,7 +37,7 @@ test('switches between Source, Live Preview and Preview without losing content',
   await expect(page.locator('.gn-heading-1')).toContainText('Browser heading');
   await expect(page.locator('.gn-strong')).toContainText('Formatted text');
 
-  await page.getByRole('tab', { name: 'Preview' }).click();
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
   await expect(page.locator('.markdown-preview')).toBeVisible();
   await expect(page.locator('.markdown-preview h1')).toHaveText('Browser heading');
   await expect(page.locator('.markdown-preview strong')).toHaveText('Formatted text');
