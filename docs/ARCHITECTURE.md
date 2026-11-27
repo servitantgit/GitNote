@@ -14,6 +14,7 @@
 - `src/modules/editor`: the Markdown editor module, using CodeMirror 6 with Source, Live (simultaneous 50/50 Source and rendered Preview) and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation. It is one format-specific editor, not the workspace's universal document surface.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
+- `src/core/domain/document-format.ts`: format-neutral filename/MIME classifier. Recognized extensions take precedence over browser MIME metadata; MIME lookup is the fallback. It does not imply a viewer/editor exists for every detected format.
 - `src/core/domain/workspace-file-system.ts`: repository-scoped virtual file tree contract, path validation and path helpers.
 - `src/core/domain`: repository capabilities, globally scoped workspace tabs and Working Tree model.
 - `e2e`: Playwright browser-level regression tests.

@@ -1,6 +1,6 @@
 # GitNotes project reference
 
-Last reviewed: 2026-11-27
+Last reviewed: 2026-11-28
 Authoritative branch: main
 Repository: https://github.com/servitantgit/GitNote
 Deployment: https://gitnotes.pages.dev/
