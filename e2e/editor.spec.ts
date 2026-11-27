@@ -155,13 +155,17 @@ test('restores one logical scroll position per note across Source and Preview', 
     const viewport = element.getBoundingClientRect();
     const lines = Array.from(element.querySelectorAll<HTMLElement>('.cm-content > .cm-line'));
     const lineNumbers = Array.from(element.querySelectorAll<HTMLElement>('.cm-gutter.cm-lineNumbers .cm-gutterElement'));
-    const visibleIndex = lines.findIndex(line => {
+    const visibleLine = lines.find(line => {
       const bounds = line.getBoundingClientRect();
       return bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
     });
-    if (visibleIndex < 0 || !lineNumbers[visibleIndex]) return null;
-    const bounds = lines[visibleIndex].getBoundingClientRect();
-    const line = Number(lineNumbers[visibleIndex].textContent?.trim()) - 1;
+    if (!visibleLine) return null;
+    const bounds = visibleLine.getBoundingClientRect();
+    const matchingGutter = lineNumbers
+      .map(gutter => ({ gutter, top: gutter.getBoundingClientRect().top }))
+      .sort((a, b) => Math.abs(a.top - bounds.top) - Math.abs(b.top - bounds.top))[0];
+    if (!matchingGutter) return null;
+    const line = Number(matchingGutter.gutter.textContent?.trim()) - 1;
     if (!Number.isFinite(line)) return null;
     return {
       line,
@@ -242,10 +246,33 @@ test('restores one logical scroll position per note across Source and Preview', 
     previewScrollTop: await preview.evaluate(element => element.scrollTop),
   });
   await page.getByRole('tab', { name: 'Source' }).click();
-  console.log('SCROLL_DIAGNOSTIC after-mode-switch', {
-    source: await readVisibleLogicalPosition(),
-    previewScrollTop: await preview.evaluate(element => element.scrollTop),
-    sourceScrollTop: await source.evaluate(element => element.scrollTop),
+  const readLayoutMetrics = () => source.evaluate(element => ({
+    scrollTop: element.scrollTop,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+    viewportTop: element.getBoundingClientRect().top,
+    visibleLines: Array.from(element.querySelectorAll<HTMLElement>('.cm-content > .cm-line'))
+      .filter(line => {
+        const rect = line.getBoundingClientRect();
+        const viewport = element.getBoundingClientRect();
+        return rect.bottom > viewport.top && rect.top < viewport.bottom;
+      })
+      .slice(0, 3)
+      .map(line => ({ top: line.getBoundingClientRect().top, height: line.getBoundingClientRect().height })),
+    gutters: Array.from(element.querySelectorAll<HTMLElement>('.cm-gutter.cm-lineNumbers .cm-gutterElement'))
+      .slice(0, 5)
+      .map(gutter => ({ text: gutter.textContent?.trim(), top: gutter.getBoundingClientRect().top })),
+  }));
+  console.log('SCROLL_DIAGNOSTIC after-mode-switch-immediate', {
+    source: await readVisibleLogicalPosition(), metrics: await readLayoutMetrics(),
+  });
+  await page.waitForTimeout(100);
+  console.log('SCROLL_DIAGNOSTIC after-mode-switch-100ms', {
+    source: await readVisibleLogicalPosition(), metrics: await readLayoutMetrics(),
+  });
+  await page.waitForTimeout(250);
+  console.log('SCROLL_DIAGNOSTIC after-mode-switch-350ms', {
+    source: await readVisibleLogicalPosition(), metrics: await readLayoutMetrics(),
   });
   await expect.poll(async () => {
     const next = await readVisibleLogicalPosition();
