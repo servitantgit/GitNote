@@ -94,7 +94,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [x] Use Lezer syntax-tree information to protect code ranges in Live Preview.
 - [ ] Verify per-tab cursor, selection, scroll and undo history in Chromium.
 - [ ] Add/verify visual browser regression coverage for Source and Live Preview.
-- [ ] Fix all failures in the latest CI browser-test run.
+- [x] Fix all failures in the latest CI browser-test run.
 - [ ] Keep project documentation synchronized with actual implementation.
 
 ### Stage 1: editor core
@@ -160,3 +160,5 @@ Only after editor and local workspace foundations are ready:
 - CI run `45929669574` on commit `70d38e1`: unit tests and production build passed; 3 migration browser tests failed because the fixture opened raw IndexedDB versions `1`–`4`, but Dexie schema versions `1.0`–`4.0` map to native IndexedDB versions `10`–`40`. The fixture therefore did not represent the historical Dexie databases and some tests were false positives. Commit `810a21b` changed the seed helper to use `version * 10` and check the native DB version.
 - CI run `45930037415` on commit `810a21b`: unit tests and production build passed; 12 browser tests passed and 2 migration tests failed. The v3 migration itself preserved the workspace; its UI assertion matched both the tab label and breadcrumb, so it now uses an exact text match. The v4 migration preserved all three records, but the test incorrectly expected the oldest note to open first; the app sorts notes by updatedAt descending, so the newest note (`Traversal`) is active. The v1 migration test now also asserts the final native IndexedDB version is 50, rather than relying only on the welcome-note UI.
 - CI run `45930326700` on commit `c07bcc9`: unit tests and production build passed; 13 of 14 Chromium tests passed. The remaining v3 migration failure was an incorrect expected path in the test: migration fallback paths use the normalized title plus the first eight characters of the document ID, matching the version 2 migration test. The expected path is `Notes/workspace-note-legacy-n.md`; no migration implementation change is required.
+
+- CI run `45931056613` on commit `e99dc0e`: all three required jobs passed (Unit tests, Browser tests (Chromium), Production build). The v3 migration browser assertion was corrected to expect the normalized fallback path produced by the migration. This is the latest verified CI run.
