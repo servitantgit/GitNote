@@ -12,7 +12,8 @@
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
 - `src/modules/editor`: CodeMirror 6 editor with Source, Live Preview and Preview modes, Markdown formatting commands, selection-aware editing and reading statistics.
-- `src/infrastructure/storage`: Dexie database and local note/draft/workspace stores.
+- `src/infrastructure/storage`: Dexie database, local document-source implementation, draft and workspace stores.
+- `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
 - `src/core/domain`: repository capabilities, globally scoped workspace tabs and Working Tree model.
 - `e2e`: Playwright browser-level regression tests.
 
@@ -23,7 +24,8 @@
 - Live Preview preserves Markdown syntax inside fenced code blocks and inline code spans.
 - Undo/redo use CodeMirror history. CodeMirror's standard editing keymaps and search panel remain available.
 - Preview renders GitHub-Flavored Markdown through Marked and sanitizes generated HTML with DOMPurify before insertion.
-- Editor content remains controlled by the active local note and is autosaved by the local note store.
+- Editor content is read and written through the `DocumentSource` contract. The current implementation is `LocalIndexedDbDocumentSource`; it performs no network or Git operations.
+- Document metadata carries an optional repository-relative `path`, optional remote `baseSha`, and `syncState` (`local`, `clean`, `dirty` or `conflict`).
 
 ## Automated quality gates
 
@@ -51,7 +53,9 @@ Every feature change must include regression coverage appropriate to its behavio
 
 ## Local persistence and compatibility
 
-Notes are stored in IndexedDB in the `notes` table. Workspace snapshots are stored in the `workspaces` table. The Dexie database name remains `gitnote-local` to preserve data created by the previous GitNote foundation. Schema version 3 adds workspace snapshots without recreating the existing notes store.
+Documents are stored in IndexedDB in the `notes` table through `LocalIndexedDbDocumentSource`. Workspace snapshots are stored in the `workspaces` table. The Dexie database name remains `gitnote-local` to preserve data created by the previous GitNote foundation. Schema version 4 adds document path and synchronization-state indexes and backfills existing notes as `local`; it does not recreate the existing notes store.
+
+Attachment metadata includes a path relative to the directory containing its parent note. The attachment storage/lifecycle module is not implemented yet; no attachment files are being written by this change.
 
 ## Planned boundaries
 
