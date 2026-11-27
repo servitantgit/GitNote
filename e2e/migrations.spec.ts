@@ -21,7 +21,9 @@ async function seedLegacyDatabase(
   }));
   await page.goto('/__playwright_seed__');
   await page.evaluate(({ databaseName, version, data }) => new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open(databaseName, version);
+    // Dexie maps schema version 1.0 to native IndexedDB version 10, 2.0 to 20, etc.
+    // Seed the same native version used by a real database created through Dexie.
+    const request = indexedDB.open(databaseName, version * 10);
     request.onupgradeneeded = () => {
       const db = request.result;
       const drafts = db.createObjectStore('drafts', { keyPath: 'id' });
@@ -45,7 +47,13 @@ async function seedLegacyDatabase(
       if (data.draft) drafts.add(data.draft);
     };
     request.onsuccess = () => {
-      request.result.close();
+      const db = request.result;
+      if (db.version !== version * 10) {
+        db.close();
+        reject(new Error(`Expected native IndexedDB version ${version * 10}, received ${db.version}.`));
+        return;
+      }
+      db.close();
       resolve();
     };
     request.onerror = () => reject(request.error);
