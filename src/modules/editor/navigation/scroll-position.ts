@@ -126,12 +126,14 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
     id: 'editor',
     readPosition() {
       const lineCount = view.state.doc.lines;
-      const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
+      const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
+      const documentOffset = viewportTop - view.documentTop;
+      const block = view.lineBlockAtHeight(documentOffset);
       const line = view.state.doc.lineAt(block.from).number - 1;
       const height = Math.max(1, block.bottom - block.top);
       return normalizeScrollPosition({
         line,
-        offset: (view.scrollDOM.scrollTop - block.top) / height,
+        offset: (documentOffset - block.top) / height,
       }, lineCount);
     },
     scrollToPosition(position) {
@@ -140,7 +142,10 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
       const line = view.state.doc.line(normalized.line + 1);
       const block = view.lineBlockAt(line.from);
       const height = Math.max(1, block.bottom - block.top);
-      view.scrollDOM.scrollTop = block.top + height * normalized.offset;
+      const viewportTop = view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.clientTop;
+      const currentDocumentOffset = viewportTop - view.documentTop;
+      const targetDocumentOffset = block.top + height * normalized.offset;
+      view.scrollDOM.scrollTop += targetDocumentOffset - currentDocumentOffset;
     },
     subscribe(listener) {
       view.scrollDOM.addEventListener('scroll', listener, { passive: true });
