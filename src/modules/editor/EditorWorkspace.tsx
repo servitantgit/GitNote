@@ -237,6 +237,7 @@ export function EditorWorkspace({
         />
       </div>
       <article
+        key={documentId}
         ref={previewRef}
         className="markdown-preview"
         hidden={mode !== 'preview'}

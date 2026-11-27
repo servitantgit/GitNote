@@ -107,35 +107,18 @@ describe('createScrollCoordinator', () => {
     coordinator.destroy();
   });
 
-  it('captures the final position when a surface is detached', () => {
+  it('keeps the last scroll-event position when a surface is hidden before detach', () => {
     const coordinator = createScrollCoordinator();
     const source = makeSurface('source');
     const detach = coordinator.register(source.surface);
-    source.setWithoutEvent({ line: 44, offset: 0.5 });
 
-    detach();
-
-    expect(coordinator.getPosition()).toEqual({ line: 44, offset: 0.5 });
-    coordinator.destroy();
-  });
-
-  it('does not overwrite the last captured position with a detached surface reset', () => {
-    const coordinator = createScrollCoordinator();
-    const source = makeSurface('source');
-    let connected = true;
-    const surface: ScrollSurface = {
-      ...source.surface,
-      isConnected: () => connected,
-    };
-    const detach = coordinator.register(surface);
-
-    source.userScroll({ line: 44, offset: 0.5 });
-    connected = false;
+    source.userScroll({ line: 40, offset: 0.25 });
+    // A hidden surface can remain connected while its scroll offset is reset.
     source.setWithoutEvent({ line: 0, offset: 0 });
 
     detach();
 
-    expect(coordinator.getPosition()).toEqual({ line: 44, offset: 0.5 });
+    expect(coordinator.getPosition()).toEqual({ line: 40, offset: 0.25 });
     coordinator.destroy();
   });
 
