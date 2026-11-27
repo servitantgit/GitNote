@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    indexedDB.deleteDatabase('gitnote-local');
-  });
+  // Playwright creates a fresh browser context for each test, including a clean IndexedDB.
   await page.goto('/');
 });
 
@@ -21,7 +19,9 @@ test('creates a note, autosaves its content and restores it after reload', async
   const editor = page.locator('.cm-content');
   await editor.fill('# Persisted heading\n\nText saved by the browser test.');
 
-  await expect(page.getByText('Збережено локально')).toBeVisible();
+  const saveIndicator = page.locator('.save-indicator');
+  await expect(saveIndicator).toHaveText('Збереження…');
+  await expect(saveIndicator).toHaveText('Збережено локально');
   await page.reload();
 
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Browser test note');
