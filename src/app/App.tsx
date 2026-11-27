@@ -200,6 +200,10 @@ export function App() {
     }
   }, [activeNote, notes, persistWorkspace]);
 
+  const handleEditorContentChange = useCallback((content: string) => {
+    updateActiveNote({ content });
+  }, [updateActiveNote]);
+
   const saveLabel = saveState === 'saving' ? 'Збереження…'
     : saveState === 'error' ? 'Помилка збереження'
       : saveState === 'loading' ? 'Завантаження…' : 'Збережено локально';
@@ -265,7 +269,7 @@ export function App() {
               </div>
             </div>
             {storageError && <div className="storage-error" role="alert">{storageError}</div>}
-            <EditorWorkspace mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={content => updateActiveNote({ content })} />
+            <EditorWorkspace key={activeNote.id} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
           </> : <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
         </section>
       </div>

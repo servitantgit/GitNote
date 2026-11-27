@@ -27,7 +27,7 @@ export function prefixLines(text: string, range: TextRange, prefix: string): Tex
 
 export function toggleHeading(text: string, range: TextRange, level: number): TextEdit {
   const from = Math.max(0, Math.min(range.from, text.length));
-  const start = text.lastIndexOf('\n', from - 1) + 1;
+  const start = from === 0 ? 0 : text.lastIndexOf('\n', from - 1) + 1;
   const endOfLine = text.indexOf('\n', from);
   const end = endOfLine === -1 ? text.length : endOfLine;
   const line = text.slice(start, end);

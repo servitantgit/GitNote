@@ -24,4 +24,10 @@ describe('Markdown editing commands', () => {
   it('handles a selection at the start of a document', () => {
     expect(prefixLines('\nsecond', { from: 0, to: 0 }, '- ').text).toBe('- \nsecond');
   });
+  it('adds a heading to an empty first line without inserting an extra newline', () => {
+    expect(toggleHeading('\nsecond', { from: 0, to: 0 }, 1)).toEqual({
+      text: '# \nsecond',
+      selection: { from: 0, to: 2 },
+    });
+  });
 });

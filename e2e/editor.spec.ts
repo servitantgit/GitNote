@@ -64,3 +64,25 @@ test('deletes a note after confirmation', async ({ page }) => {
 
   await expect(page.getByRole('list', { name: 'Список нотаток' })).not.toContainText('Note to delete');
 });
+
+test('switching notes resets CodeMirror undo history', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  await editor.fill('Content belonging to note A');
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await editor.fill('Content belonging to note B');
+
+  await page.getByRole('button', { name: 'Моя перша нотатка' }).click();
+  await page.getByRole('button', { name: 'Без назви' }).click();
+  await editor.press('Control+z');
+
+  await expect(editor).toContainText('Content belonging to note B');
+  await expect(editor).not.toContainText('Content belonging to note A');
+});
+
+test('Ctrl+I applies italic formatting to the selected text', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  await editor.fill('selected text');
+  await editor.press('Control+a');
+  await editor.press('Control+i');
+  await expect(editor).toContainText('*selected text*');
+});
