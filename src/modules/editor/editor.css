@@ -8,9 +8,9 @@
 .editor-toolbar-actions{display:flex;align-items:center;gap:12px}.minimap-toggle{width:30px;height:29px;display:grid;place-items:center;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}.minimap-toggle:hover{background:var(--hover);color:var(--text)}.minimap-toggle.active{background:var(--selected);color:var(--accent);border-color:var(--border)}.editor-main{min-width:0;min-height:0;flex:1;display:flex;overflow:hidden}.editor-main>.source-editor,.editor-main>.markdown-preview{min-width:0;flex:1}.editor-minimap{width:96px;flex:0 0 96px;min-height:0;height:100%;overflow:hidden;border-left:1px solid var(--border);background:var(--panel);position:relative;cursor:crosshair;touch-action:none;user-select:none}.editor-minimap canvas{display:block;width:96px;height:100%;vertical-align:top}
 @media(max-width:700px){.minimap-toggle,.editor-minimap{display:none}}
 
-/* Split uses equal grid tracks so Preview padding cannot skew the 50/50 layout. */
-.editor-main.split-mode{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;}
-.editor-main.split-mode>.source-editor,.editor-main.split-mode>.markdown-preview{box-sizing:border-box;flex:none;width:auto;min-width:0;min-height:0;}
-.editor-main.split-mode>.source-editor{display:flex;border-right:1px solid var(--border);}
-.editor-main.split-mode>.markdown-preview{border-left:0;}
-@media(max-width:700px){.editor-main.split-mode{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.editor-main.split-mode>.source-editor,.editor-main.split-mode>.markdown-preview{width:auto;min-height:0;border-right:0;border-left:0}.editor-main.split-mode>.source-editor{border-bottom:1px solid var(--border)}}
+/* Live keeps editable Source and rendered Preview in equal grid tracks. */
+.editor-main.live-mode{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;}
+.editor-main.live-mode>.source-editor,.editor-main.live-mode>.markdown-preview{box-sizing:border-box;flex:none;width:auto;min-width:0;min-height:0;}
+.editor-main.live-mode>.source-editor{display:flex;border-right:1px solid var(--border);}
+.editor-main.live-mode>.markdown-preview{border-left:0;}
+@media(max-width:700px){.editor-main.live-mode{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.editor-main.live-mode>.source-editor,.editor-main.live-mode>.markdown-preview{width:auto;min-height:0;border-right:0;border-left:0}.editor-main.live-mode>.source-editor{border-bottom:1px solid var(--border)}}

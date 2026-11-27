@@ -27,7 +27,7 @@ These instructions are mandatory for every task in this repository.
 - The intended product analogy is OneNote + Git, not a Google Docs collaboration clone or an Obsidian knowledge-graph clone.
 - Desktop/laptop is the primary work environment; mobile is mainly for quick notes and viewing.
 - CodeMirror 6 is the selected editor engine. Do not reintroduce CodeMirror 5 APIs or unpinned CDN dependencies.
-- Keep the three existing editor modes: Source, Live Preview (inline editing with Markdown formatting), and Preview (reading). A separate 50/50 Split mode is planned; do not silently replace Live Preview semantics.
+- Keep exactly three editor modes: Source (Markdown source editing), Live (editable Source and rendered Preview side by side with bidirectional synchronized scrolling), and Preview (reading). Do not add a separate inline-formatting Live Preview mode.
 - Preserve per-tab editor state: text, selection/cursor and undo history; preserve scroll position where implemented. Switching documents must not leak history or content.
 - All opened tabs are global. A tab belonging to an inactive repository remains locally editable, but remote Git operations are disabled. Selecting a tab must not silently activate its repository.
 - No automatic commit, push or remote synchronization. Local edits and file operations are staged locally; remote Git actions must be explicit and repository/branch scoped.

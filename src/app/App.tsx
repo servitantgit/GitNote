@@ -13,7 +13,7 @@ import './app.css';
 
 const LOCAL_REPOSITORY_ID = 'local-workspace';
 const LOCAL_REPOSITORY = { id: LOCAL_REPOSITORY_ID, owner: 'local', name: 'Локальний робочий простір', defaultBranch: 'main' };
-const INITIAL_CONTENT = '# Моя перша нотатка\n\nGitNotes — робочий простір для нотаток і документів із Git-контролем версій.\n\n- Source: редагування Markdown\n- Live Preview: редагування з форматуванням\n- Preview: режим читання';
+const INITIAL_CONTENT = '# Моя перша нотатка\n\nGitNotes — робочий простір для нотаток і документів із Git-контролем версій.\n\n- Source: редагування Markdown\n- Live: Source і Preview поруч із синхронізованою прокруткою\n- Preview: режим читання';
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 

@@ -1,5 +1,5 @@
 import { markdownLanguage } from '@codemirror/lang-markdown';
-import { EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 
 export interface DocumentScrollPosition {
   /** Zero-based document line at the top edge of the viewport. */
@@ -140,24 +140,18 @@ export function createCodeMirrorScrollSurface(view: EditorView): ScrollSurface {
     scrollToPosition(position) {
       const normalized = normalizeScrollPosition(position, view.state.doc.lines);
       const lineNumber = normalized.line + 1;
-      const line = view.state.doc.line(lineNumber);
-      view.dispatch({
-        effects: EditorView.scrollIntoView(line.from, { y: 'start', yMargin: 0 }),
+      view.requestMeasure({
+        key: view,
+        read: () => {
+          const line = view.state.doc.line(Math.min(lineNumber, view.state.doc.lines));
+          const block = view.lineBlockAt(line.from);
+          const height = Math.max(1, block.bottom - block.top);
+          return block.top + height * normalized.offset;
+        },
+        write: documentOffset => {
+          view.scrollDOM.scrollTop = documentOffset;
+        },
       });
-
-      if (normalized.offset > 0) {
-        view.requestMeasure({
-          key: view,
-          read: () => {
-            const currentLine = view.state.doc.line(Math.min(lineNumber, view.state.doc.lines));
-            const block = view.lineBlockAt(currentLine.from);
-            const height = Math.max(1, block.bottom - block.top);
-            const currentDocumentOffset = view.scrollDOM.scrollTop;
-            return block.top + height * normalized.offset - currentDocumentOffset;
-          },
-          write: delta => { view.scrollDOM.scrollTop += delta; },
-        });
-      }
     },
     subscribe(listener) {
       view.scrollDOM.addEventListener('scroll', listener, { passive: true });

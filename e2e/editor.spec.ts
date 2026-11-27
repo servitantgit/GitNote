@@ -37,21 +37,26 @@ test('creates a note, autosaves its content and restores it after reload', async
   await expect(page.locator('.cm-content')).toContainText('Text saved by the browser test.');
 });
 
-test('switches between Source, Live Preview and Preview without losing content', async ({ page }) => {
+test('switches between Source, Live and Preview without losing content', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('# Browser heading\n\n**Formatted text**');
 
-  await page.getByRole('tab', { name: 'Live Preview' }).click();
-  await expect(page.locator('.gn-heading-1')).toContainText('Browser heading');
-  await expect(page.locator('.gn-strong')).toContainText('Formatted text');
-
-  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
-  await expect(page.locator('.markdown-preview')).toBeVisible();
+  await page.getByRole('tab', { name: 'Live', exact: true }).click();
+  await expect(page.locator('.editor-main.live-mode')).toBeVisible();
+  await expect(editor).toBeVisible();
   await expect(page.locator('.markdown-preview h1')).toHaveText('Browser heading');
   await expect(page.locator('.markdown-preview strong')).toHaveText('Formatted text');
 
+  await editor.fill('# Updated heading\n\n**Updated text**');
+  await expect(page.locator('.markdown-preview h1')).toHaveText('Updated heading');
+  await expect(page.locator('.markdown-preview strong')).toHaveText('Updated text');
+
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect(page.locator('.markdown-preview')).toBeVisible();
+  await expect(page.locator('.markdown-preview h1')).toHaveText('Updated heading');
+
   await page.getByRole('tab', { name: 'Source' }).click();
-  await expect(page.locator('.cm-content')).toContainText('**Formatted text**');
+  await expect(editor).toContainText('**Updated text**');
 });
 
 test('applies Markdown formatting from the toolbar to the selected text', async ({ page }) => {
@@ -120,9 +125,9 @@ test('restores one logical scroll position per note across Source and Preview', 
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
 
-  // Source and Live Preview use the same editor surface; mode changes must not
+  // Source and Live use the same editor surface; mode changes must not
   // reset its viewport or break synchronization with the reading Preview.
-  await page.getByRole('tab', { name: 'Live Preview' }).click();
+  await page.getByRole('tab', { name: 'Live' }).click();
   await expect.poll(() => source.evaluate(element => element.scrollTop))
     .toBeGreaterThan(initialSourceTop * 0.8);
   await source.evaluate(element => {
@@ -172,15 +177,16 @@ test('Ctrl+I applies italic formatting to the selected text', async ({ page }) =
   await expect(editor).toContainText('*selected text*');
 });
 
-test('captures Source and Live Preview visual states for browser review', async ({ page }) => {
+test('captures Source and Live visual states for browser review', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('# Visual heading\n\n**Formatted text**\n\n```ts\nconst value = 1;\n```');
   await page.screenshot({ path: 'test-results/gitnotes-source.png', fullPage: true });
 
-  await page.getByRole('tab', { name: 'Live Preview' }).click();
-  await expect(page.locator('.gn-heading-1')).toContainText('Visual heading');
-  await expect(page.locator('.gn-strong')).toContainText('Formatted text');
-  await page.screenshot({ path: 'test-results/gitnotes-live-preview.png', fullPage: true });
+  await page.getByRole('tab', { name: 'Live' }).click();
+  await expect(page.locator('.editor-main.live-mode')).toBeVisible();
+  await expect(page.locator('.markdown-preview h1')).toContainText('Visual heading');
+  await expect(page.locator('.markdown-preview strong')).toContainText('Formatted text');
+  await page.screenshot({ path: 'test-results/gitnotes-live.png', fullPage: true });
 });
 
 test('stores newly created notes as files in the local VFS', async ({ page }) => {
@@ -290,21 +296,21 @@ test('keeps independent scroll positions for two notes across all editor modes',
 
 
 
-test('Split shows Source and Preview together with bidirectional synchronized scrolling', async ({ page }) => {
+test('Live shows Source and Preview together with bidirectional synchronized scrolling', async ({ page }) => {
   const content = Array.from({ length: 100 }, (_, index) =>
-    `## Split section ${index + 1}\n\nParagraph ${index + 1} with enough text to create a scrollable rendered preview and editor surface.`,
+    `## Live section ${index + 1}\n\nParagraph ${index + 1} with enough text to create a scrollable rendered preview and editor surface.`,
   ).join('\n\n');
   const editor = page.locator('.cm-content');
   await editor.fill(content);
-  await page.getByRole('tab', { name: 'Split', exact: true }).click();
+  await page.getByRole('tab', { name: 'Live', exact: true }).click();
 
-  const split = page.locator('.editor-main.split-mode');
+  const split = page.locator('.editor-main.live-mode');
   const source = page.locator('.cm-scroller');
   const preview = page.locator('.markdown-preview');
   await expect(split).toBeVisible();
   await expect(source).toBeVisible();
   await expect(preview).toBeVisible();
-  await expect(preview.locator('h2').first()).toHaveText('Split section 1');
+  await expect(preview.locator('h2').first()).toHaveText('Live section 1');
 
   const widths = await Promise.all([
     page.locator('.source-editor').evaluate(element => element.getBoundingClientRect().width),
@@ -337,6 +343,33 @@ test('Split shows Source and Preview together with bidirectional synchronized sc
   await expect(editor).toContainText('Newly edited section');
 });
 
+test('Live responds to small mouse-wheel increments', async ({ page }) => {
+  const content = Array.from({ length: 120 }, (_, index) =>
+    `Paragraph ${index + 1} with enough text to occupy a visible line in the rendered preview.`,
+  ).join('\n\n');
+  await page.locator('.cm-content').fill(content);
+  await page.getByRole('tab', { name: 'Live', exact: true }).click();
+
+  const preview = page.locator('.markdown-preview');
+  await expect(preview).toBeVisible();
+  const bounds = await preview.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(
+    (bounds?.x ?? 0) + (bounds?.width ?? 0) / 2,
+    (bounds?.y ?? 0) + (bounds?.height ?? 0) / 2,
+  );
+
+  // Fractional wheel deltas model a deliberately slow wheel movement. These
+  // must not be mistaken for the coordinator's pending programmatic echo.
+  for (let index = 0; index < 12; index += 1) {
+    await page.mouse.wheel(0, 0.25);
+  }
+
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0.5);
+  await expect.poll(() => page.locator('.cm-scroller').evaluate(element => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
 test('minimap follows the active editor surface and drives synchronized scrolling', async ({ page }) => {
   const content = Array.from({ length: 90 }, (_, index) =>
     '## Section ' + (index + 1) + '\n\nParagraph ' + (index + 1) + ' with enough content to create a scrollable document.',
@@ -353,7 +386,7 @@ test('minimap follows the active editor surface and drives synchronized scrollin
   await minimap.click({ position: { x: 45, y: Math.floor((bounds?.height ?? 1) * 0.78) } });
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
-  await page.getByRole('tab', { name: 'Live Preview' }).click();
+  await page.getByRole('tab', { name: 'Live' }).click();
   const livePreviewTop = await source.evaluate(element => element.scrollTop);
   await minimap.click({ position: { x: 45, y: Math.floor((bounds?.height ?? 1) * 0.46) } });
   await expect.poll(async () => Math.abs(
