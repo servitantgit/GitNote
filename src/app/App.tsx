@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorState } from '@codemirror/state';
-import type { EditorView } from '@codemirror/view';
 import type { DocumentScrollPosition } from '../modules/editor/navigation/scroll-position';
 import { Files, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
@@ -42,7 +41,6 @@ export function App() {
   const dirtyTitleNoteIds = useRef(new Set<string>());
   const activeNoteIdRef = useRef<string | null>(null);
   const editorStatesRef = useRef(new Map<string, EditorState>());
-  const editorScrollSnapshotsRef = useRef(new Map<string, ReturnType<EditorView['scrollSnapshot']>>());
   const scrollPositionsRef = useRef(new Map<string, DocumentScrollPosition>());
 
   const activeTab = useMemo(
@@ -228,7 +226,6 @@ export function App() {
       if (activeNote.path) await workspaceFileSystem.remove(activeNote.repositoryId, activeNote.path);
       else await documentSource.remove(activeNote.id);
       scrollPositionsRef.current.delete(activeNote.id);
-      editorScrollSnapshotsRef.current.delete(activeNote.id);
       dirtyNoteIds.current.delete(activeNote.id);
       dirtyTitleNoteIds.current.delete(activeNote.id);
       const manager = managerRef.current;
@@ -329,7 +326,7 @@ export function App() {
                 <button className="attachment-button" disabled title="Вкладення будуть додані окремим модулем"><Paperclip size={16} />Вкладені файли</button>
               </div>
             </div>
-            <EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} editorScrollSnapshots={editorScrollSnapshotsRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
+            <EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
           </> : <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
         </section>
       </div>

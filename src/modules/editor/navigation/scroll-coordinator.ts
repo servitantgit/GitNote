@@ -71,11 +71,10 @@ export function createScrollCoordinator(
     return () => {
       const current = surfaces.get(surface.id);
       if (current?.surface !== surface) return;
-      try {
-        publish(surface.readPosition(), surface.id);
-      } catch {
-        // A surface may already have been detached by its host framework.
-      }
+      // Do not read the surface during cleanup. React may already have hidden it
+      // while keeping it connected, or reused its DOM for another document. In
+      // either case scrollTop may be zero/clamped. Keep the last event-captured
+      // logical position instead.
       current.unsubscribe();
       surfaces.delete(surface.id);
       pendingWrites.delete(surface.id);
