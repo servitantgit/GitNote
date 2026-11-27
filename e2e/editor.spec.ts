@@ -346,7 +346,7 @@ test('Live shows Source and Preview together with bidirectional synchronized scr
 test('Live responds to small mouse-wheel increments', async ({ page }) => {
   const content = Array.from({ length: 120 }, (_, index) =>
     `Paragraph ${index + 1} with enough text to occupy a visible line in the rendered preview.`,
-  ).join('\\n\\n');
+  ).join('\n\n');
   await page.locator('.cm-content').fill(content);
   await page.getByRole('tab', { name: 'Live', exact: true }).click();
 
