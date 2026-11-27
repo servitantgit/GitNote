@@ -44,6 +44,7 @@ Every feature change must include regression coverage appropriate to its behavio
 - CI runs unit tests, Chromium browser tests and the production build independently. A change is not considered verified until all three jobs pass.
 - Bug fixes should add a regression test that fails before the fix and passes after it.
 - Browser-test failures retain traces/screenshots as CI artifacts to make diagnosis reproducible.
+- The editor exposes a development-only Playwright hook for reading the coordinator's logical position and the active CodeMirror adapter's position; production builds exclude this diagnostic hook.
 - Scroll regression coverage exercises Source/Live/Preview transitions, Live's simultaneous bidirectional synchronization including fractional slow-wheel input, independent per-note positions, Preview image-load/resize notifications, and minimap click/drag navigation across all three single-pane editor modes.
 
 ## Workspace manager and UI integration

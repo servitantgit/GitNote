@@ -143,52 +143,59 @@ test('restores one logical scroll position per note across Source and Preview', 
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
 
-  // One Markdown heading per source line avoids empty spacer lines at the
-  // viewport edge. Long headings wrap in Live, so the test still exercises
-  // different source-pane widths while retaining a stable line identity.
   const content = Array.from({ length: 80 }, (_, index) =>
     `## Section ${index + 1} with enough text to wrap across multiple visual rows in the narrower Live source pane and remain a distinct heading in the rendered preview.`,
-  ).join('\n');
+  ).join('\\n');
   const editor = page.locator('.cm-content');
   await editor.fill(content);
 
+  type LogicalPosition = { line: number; offset: number };
+  type ScrollDebugState = {
+    coordinator: LogicalPosition;
+    source: LogicalPosition | null;
+  };
+  const readScrollState = () => page.evaluate(() => {
+    const hook = (window as Window & {
+      __gitnoteScrollDebug?: {
+        readCoordinatorPosition: () => LogicalPosition;
+        readSourcePosition: () => LogicalPosition | null;
+      };
+    }).__gitnoteScrollDebug;
+    return hook ? {
+      coordinator: hook.readCoordinatorPosition(),
+      source: hook.readSourcePosition(),
+    } : null;
+  });
+  const matchesPosition = (
+    actual: LogicalPosition | null,
+    expected: LogicalPosition,
+  ) => Boolean(actual
+    && Math.abs(actual.line - expected.line) < 0.02
+    && Math.abs(actual.offset - expected.offset) < 0.03);
+
   const source = page.locator('.cm-scroller');
   const preview = page.locator('.markdown-preview');
-  const readVisibleLogicalPosition = () => source.evaluate(element => {
-    const viewport = element.getBoundingClientRect();
-    const visibleLine = Array.from(element.querySelectorAll<HTMLElement>('.cm-content > .cm-line'))
-      .find(line => {
-        const bounds = line.getBoundingClientRect();
-        return bounds.bottom > viewport.top + 1 && bounds.top < viewport.bottom;
-      });
-    if (!visibleLine) return null;
-
-    const section = visibleLine.textContent?.match(/Section (\d+)/);
-    if (!section) return null;
-    const bounds = visibleLine.getBoundingClientRect();
-    return {
-      line: Number(section[1]) - 1,
-      offset: Math.max(0, Math.min(1, (viewport.top - bounds.top) / Math.max(1, bounds.height))),
-    };
-  });
-
   await source.evaluate(element => {
     element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55;
     element.dispatchEvent(new Event('scroll'));
   });
-  await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(async () => (await readScrollState())?.coordinator.line ?? 0)
+    .toBeGreaterThan(0);
+  const initialState = await readScrollState();
+  expect(initialState).not.toBeNull();
+  if (!initialState) throw new Error('Scroll debug hook is unavailable');
+  expect(matchesPosition(initialState.source, initialState.coordinator)).toBe(true);
   const initialSourceTop = await source.evaluate(element => element.scrollTop);
-  const initialLogicalPosition = await readVisibleLogicalPosition();
-  expect(initialLogicalPosition).not.toBeNull();
 
-  // Source and Live use the same editor surface. Compare its visible logical
-  // line and fractional offset rather than pixels, which change with wrapping.
+  // The coordinator and the CodeMirror adapter must retain the same logical
+  // position when Live changes the source pane width and wraps lines differently.
   await page.getByRole('tab', { name: 'Live' }).click();
+  await expect(page.locator('.editor-main.live-mode')).toBeVisible();
   await expect.poll(async () => {
-    const next = await readVisibleLogicalPosition();
-    return Boolean(next && initialLogicalPosition
-      && next.line === initialLogicalPosition.line
-      && Math.abs(next.offset - initialLogicalPosition.offset) < 0.15);
+    const next = await readScrollState();
+    return Boolean(next
+      && matchesPosition(next.coordinator, initialState.coordinator)
+      && matchesPosition(next.source, initialState.coordinator));
   }).toBe(true);
   await expect(preview).toBeVisible();
   await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
@@ -206,15 +213,24 @@ test('restores one logical scroll position per note across Source and Preview', 
     const after = await preview.evaluate(element => element.scrollTop);
     return Math.abs(after - before) < 0.5;
   }).toBe(true);
-  const liveLogicalPosition = await readVisibleLogicalPosition();
-  expect(liveLogicalPosition).not.toBeNull();
+
+  const liveState = await readScrollState();
+  expect(liveState).not.toBeNull();
+  if (!liveState) throw new Error('Scroll debug hook is unavailable');
+  expect(matchesPosition(liveState.source, liveState.coordinator)).toBe(true);
+  const liveLogicalPosition = liveState.coordinator;
 
   await page.getByRole('tab', { name: 'Source' }).click();
+  await expect(page.locator('.editor-main.live-mode')).toHaveCount(0);
+  await page.waitForFunction(() => {
+    const scroller = document.querySelector('.cm-scroller');
+    return scroller instanceof HTMLElement && scroller.clientWidth > 0;
+  });
   await expect.poll(async () => {
-    const next = await readVisibleLogicalPosition();
-    return Boolean(next && liveLogicalPosition
-      && next.line === liveLogicalPosition.line
-      && Math.abs(next.offset - liveLogicalPosition.offset) < 0.15);
+    const next = await readScrollState();
+    return Boolean(next
+      && matchesPosition(next.coordinator, liveLogicalPosition)
+      && matchesPosition(next.source, liveLogicalPosition));
   }).toBe(true);
 
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
@@ -245,7 +261,6 @@ test('restores one logical scroll position per note across Source and Preview', 
   await expect.poll(() => preview.evaluate(element => element.scrollTop))
     .toBeGreaterThan(savedPreviewTop * 0.8);
 });
-
 test('Ctrl+I applies italic formatting to the selected text', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('selected text');
