@@ -69,8 +69,8 @@ export function EditorWorkspace({
 }: Props) {
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
-  const sourceDetachRef = useRef<(() => void) | null>(null);
-  const previewDetachRef = useRef<(() => void) | null>(null);
+  const sourceAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; view: EditorView; detach: () => void } | null>(null);
+  const previewAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; element: HTMLElement; detach: () => void } | null>(null);
   const positionChangeRef = useRef(onScrollPositionChange);
   positionChangeRef.current = onScrollPositionChange;
 
@@ -83,8 +83,14 @@ export function EditorWorkspace({
   );
 
   const attachSource = (view: EditorView) => {
-    sourceDetachRef.current?.();
-    sourceDetachRef.current = coordinator.register(createCodeMirrorScrollSurface(view));
+    const current = sourceAttachmentRef.current;
+    if (current?.coordinator === coordinator && current.view === view) return;
+    current?.detach();
+    sourceAttachmentRef.current = {
+      coordinator,
+      view,
+      detach: coordinator.register(createCodeMirrorScrollSurface(view)),
+    };
   };
 
   const extensions = useMemo(() => mode === 'live-preview'
@@ -99,18 +105,30 @@ export function EditorWorkspace({
   useLayoutEffect(() => {
     if (mode === 'preview') {
       const element = previewRef.current;
-      if (element) {
-        previewDetachRef.current = coordinator.register(createPreviewScrollSurface(element, content));
+      const current = previewAttachmentRef.current;
+      if (element && (current?.coordinator !== coordinator || current.element !== element)) {
+        current?.detach();
+        previewAttachmentRef.current = {
+          coordinator,
+          element,
+          detach: coordinator.register(createPreviewScrollSurface(element, content)),
+        };
       }
-    } else if (editorRef.current?.dom.isConnected && !sourceDetachRef.current) {
+    } else if (editorRef.current?.dom.isConnected) {
       attachSource(editorRef.current);
     }
 
     return () => {
-      sourceDetachRef.current?.();
-      sourceDetachRef.current = null;
-      previewDetachRef.current?.();
-      previewDetachRef.current = null;
+      const source = sourceAttachmentRef.current;
+      if (source?.coordinator === coordinator) {
+        source.detach();
+        sourceAttachmentRef.current = null;
+      }
+      const preview = previewAttachmentRef.current;
+      if (preview?.coordinator === coordinator) {
+        preview.detach();
+        previewAttachmentRef.current = null;
+      }
     };
   }, [coordinator, mode, mode === 'preview' ? content : null]);
 
