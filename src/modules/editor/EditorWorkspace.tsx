@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { redo, undo } from '@codemirror/commands';
@@ -10,7 +10,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import {
   Bold, Italic, Strikethrough, Code2, Link2, Heading1, Heading2,
-  List, ListOrdered, Quote, Minus, Undo2, Redo2,
+  List, ListOrdered, Quote, Minus, Undo2, Redo2, Map as MapIcon,
 } from 'lucide-react';
 import type { EditorMode } from './types';
 import { prefixLines, toggleHeading, wrapSelection } from './markdown-commands';
@@ -21,6 +21,7 @@ import {
   createPreviewScrollSurface,
   type DocumentScrollPosition,
 } from './navigation/scroll-position';
+import { Minimap } from './Minimap';
 import './editor.css';
 
 interface Props {
@@ -68,6 +69,8 @@ export function EditorWorkspace({
   onContentChange,
 }: Props) {
   const editorRef = useRef<EditorView | null>(null);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+  const [minimapOpen, setMinimapOpen] = useState(false);
   const previewRef = useRef<HTMLElement | null>(null);
   const sourceAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; view: EditorView; detach: () => void } | null>(null);
   const previewAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; element: HTMLElement; detach: () => void } | null>(null);
@@ -182,7 +185,19 @@ export function EditorWorkspace({
             </button>
           ))}
         </div>
-        <span className="editor-language">{mode === 'live-preview' ? 'LIVE MARKDOWN' : 'MARKDOWN'}</span>
+        <div className="editor-toolbar-actions">
+          <button
+            type="button"
+            className={'minimap-toggle' + (minimapOpen ? ' active' : '')}
+            aria-label={minimapOpen ? 'Приховати мінімапу' : 'Показати мінімапу'}
+            aria-pressed={minimapOpen}
+            title="Мінімапа документа"
+            onClick={() => setMinimapOpen(open => !open)}
+          >
+            <MapIcon size={15} />
+          </button>
+          <span className="editor-language">{mode === 'live-preview' ? 'LIVE MARKDOWN' : 'MARKDOWN'}</span>
+        </div>
       </div>
 
       {mode !== 'preview' && (
@@ -205,6 +220,7 @@ export function EditorWorkspace({
         </div>
       )}
 
+      <div className="editor-main">
       <div className={'source-editor' + (mode === 'preview' ? ' source-editor-hidden' : '')}>
         <CodeMirror
           key={documentId}
@@ -218,6 +234,7 @@ export function EditorWorkspace({
           }}
           onCreateEditor={view => {
             editorRef.current = view;
+            setEditorView(view);
             const savedState = editorStates.get(documentId);
             if (savedState) view.setState(savedState);
             editorStates.set(documentId, view.state);
@@ -243,6 +260,16 @@ export function EditorWorkspace({
         hidden={mode !== 'preview'}
         dangerouslySetInnerHTML={{ __html: rendered }}
       />
+      {minimapOpen && (
+        <Minimap
+          view={editorView}
+          content={content}
+          mode={mode}
+          previewRef={previewRef}
+          coordinator={coordinator}
+        />
+      )}
+      </div>
       <div className="editor-status">
         <span>{mode === 'preview' ? 'Режим читання' : mode === 'live-preview' ? 'Редагування з форматуванням' : 'Вихідний Markdown'}</span>
         <span>{wordCount} слів · {lineCount} рядків · {content.length} символів</span>

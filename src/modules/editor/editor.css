@@ -4,3 +4,6 @@
 .source-editor .cm-selectionBackground{background:rgba(49,95,155,.22)!important;}
 .source-editor .cm-focused .cm-selectionBackground,.source-editor .cm-editor.cm-focused>.cm-scroller>.cm-selectionLayer .cm-selectionBackground{background:rgba(49,95,155,.38)!important;}
 .source-editor .cm-content ::selection{background:rgba(49,95,155,.24);}
+
+.editor-toolbar-actions{display:flex;align-items:center;gap:12px}.minimap-toggle{width:30px;height:29px;display:grid;place-items:center;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}.minimap-toggle:hover{background:var(--hover);color:var(--text)}.minimap-toggle.active{background:var(--selected);color:var(--accent);border-color:var(--border)}.editor-main{min-width:0;min-height:0;flex:1;display:flex;overflow:hidden}.editor-main>.source-editor,.editor-main>.markdown-preview{min-width:0;flex:1}.editor-minimap{width:96px;flex:0 0 96px;min-height:0;height:100%;overflow:hidden;border-left:1px solid var(--border);background:var(--panel);position:relative;cursor:crosshair;touch-action:none;user-select:none}.editor-minimap canvas{display:block;width:96px;height:100%;vertical-align:top}
+@media(max-width:700px){.minimap-toggle,.editor-minimap{display:none}}
