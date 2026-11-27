@@ -97,7 +97,7 @@ export function EditorWorkspace({
   );
 
   useLayoutEffect(() => {
-    if (!import.meta.env.DEV) return;
+    if (!(import.meta as ImportMeta & { env: { DEV: boolean } }).env.DEV) return;
     const debugHook: ScrollDebugHook = {
       readCoordinatorPosition: () => coordinator.getPosition(),
       readSourcePosition: () => editorRef.current
