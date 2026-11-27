@@ -67,3 +67,19 @@ export interface BinaryDocumentSource {
   remove(id: string): Promise<void>;
   create(document: BinaryDocumentRecord): Promise<void>;
 }
+
+/** Binary documents are stored separately from editable text notes. */
+export interface BinaryDocumentRecord extends DocumentMeta {
+  content: Blob;
+  mediaType: string;
+  size: number;
+}
+
+/** Storage contract for binary workspace documents. */
+export interface BinaryDocumentSource {
+  list(): Promise<Omit<BinaryDocumentRecord, 'content'>[]>;
+  read(id: string): Promise<BinaryDocumentRecord>;
+  write(id: string, content: Blob, baseSha?: string): Promise<DocumentWriteResult>;
+  remove(id: string): Promise<void>;
+  create(document: BinaryDocumentRecord): Promise<void>;
+}

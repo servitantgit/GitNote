@@ -16,6 +16,7 @@ export interface WorkspaceFileSystem {
   list(repositoryId: string, parentPath?: string): Promise<WorkspaceFileNode[]>;
   createDocument(document: import('./document-source').DocumentRecord, path: string): Promise<WorkspaceFileNode>;
   createBinaryDocument(document: import('./document-source').BinaryDocumentRecord, path: string): Promise<WorkspaceFileNode>;
+  createBinaryDocument(document: import('./document-source').BinaryDocumentRecord, path: string): Promise<WorkspaceFileNode>;
   createFolder(repositoryId: string, parentPath: string, name: string): Promise<WorkspaceFileNode>;
   registerDocument(repositoryId: string, documentId: string, path: string): Promise<WorkspaceFileNode>;
   rename(repositoryId: string, path: string, name: string): Promise<void>;

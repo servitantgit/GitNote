@@ -7,6 +7,8 @@ All notable changes to GitNotes are documented here.
 ### Added
 - Blob-preserving IndexedDB storage for binary workspace documents, separate from text notes, with transactional VFS registration and lifecycle updates.
 - Chromium regression coverage for binary Blob persistence, update, VFS rename and recursive deletion.
+- Blob-preserving IndexedDB storage for binary workspace documents, separate from text notes, with transactional VFS registration and lifecycle updates.
+- Chromium regression coverage for binary Blob persistence, update, VFS rename and recursive deletion.
 
 ### Added
 - Optional Markdown Outline panel with Lezer-based ATX/Setext heading navigation, active-section tracking and synchronized scrolling in Source, Live and Preview.

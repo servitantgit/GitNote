@@ -154,6 +154,7 @@ The goal is format-appropriate experiences within one workspace, not a single Ma
 
 - [ ] Shared document-opening contract and format capability model (view, edit, import, export, print), without assuming every format supports every operation.
 - [x] Separate Blob-preserving IndexedDB storage for binary workspace documents, including atomic VFS registration, path updates and recursive deletion.
+- [x] Separate Blob-preserving IndexedDB storage for binary workspace documents, including atomic VFS registration, path updates and recursive deletion.
 - [ ] PDF viewer and defined PDF interaction scope.
 - [ ] DOCX viewer and editing strategy.
 - [ ] XLSX viewer and editing strategy.
@@ -178,6 +179,7 @@ Only after editor and local workspace foundations are ready:
 ## Known limitations and cautions
 
 - The visible UI is still a flat notes list, not the VFS tree.
+- Binary document persistence and VFS lifecycle are implemented, but no user-facing file import/open workflow exists yet.
 - Binary document persistence and VFS lifecycle are implemented, but no user-facing file import/open workflow exists yet.
 - Local VFS operations exist as a storage/domain service; they are not yet exposed as normal user-facing file manager workflows.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
