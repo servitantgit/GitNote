@@ -32,8 +32,9 @@ test('creates a note, autosaves its content and restores it after reload', async
 test('switches between Source, Live Preview and Preview without losing content', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await editor.fill('# Browser heading\n\n**Formatted text**');
-  // Collapse the programmatic fill selection before checking rendered decorations.
-  await editor.click({ position: { x: 8, y: 8 } });
+  // Move the caret to the blank line so both Markdown content lines can render decorations.
+  await editor.press('Control+End');
+  await editor.press('ArrowUp');
 
   await page.getByRole('tab', { name: 'Live Preview' }).click();
   await expect(page.locator('.gn-heading-1')).toContainText('Browser heading');
