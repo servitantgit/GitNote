@@ -148,7 +148,7 @@ test('restores one logical scroll position per note across Source and Preview', 
   // different source-pane widths while retaining a stable line identity.
   const content = Array.from({ length: 80 }, (_, index) =>
     `## Section ${index + 1} with enough text to wrap across multiple visual rows in the narrower Live source pane and remain a distinct heading in the rendered preview.`,
-  ).join('\\n');
+  ).join('\n');
   const editor = page.locator('.cm-content');
   await editor.fill(content);
 
@@ -163,7 +163,7 @@ test('restores one logical scroll position per note across Source and Preview', 
       });
     if (!visibleLine) return null;
 
-    const section = visibleLine.textContent?.match(/Section (\\d+)/);
+    const section = visibleLine.textContent?.match(/Section (\d+)/);
     if (!section) return null;
     const bounds = visibleLine.getBoundingClientRect();
     return {
