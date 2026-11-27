@@ -10,7 +10,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import {
   Bold, Italic, Strikethrough, Code2, Link2, Heading1, Heading2,
-  List, ListOrdered, Quote, Minus, Undo2, Redo2, Map as MapIcon,
+  List, ListOrdered, Quote, Minus, Undo2, Redo2, Map as MapIcon, ListTree,
 } from 'lucide-react';
 import type { EditorMode } from './types';
 import { prefixLines, toggleHeading, wrapSelection } from './markdown-commands';
@@ -21,6 +21,7 @@ import {
   type DocumentScrollPosition,
 } from './navigation/scroll-position';
 import { Minimap } from './Minimap';
+import { Outline } from './Outline';
 import './editor.css';
 
 interface Props {
@@ -82,6 +83,7 @@ export function EditorWorkspace({
   const editorRef = useRef<EditorView | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [minimapOpen, setMinimapOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const previewRef = useRef<HTMLElement | null>(null);
   const sourceAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; view: EditorView; detach: () => void } | null>(null);
   const previewAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; element: HTMLElement; detach: () => void } | null>(null);
@@ -214,6 +216,16 @@ export function EditorWorkspace({
         <div className="editor-toolbar-actions">
           <button
             type="button"
+            className={'outline-toggle' + (outlineOpen ? ' active' : '')}
+            aria-label={outlineOpen ? 'Приховати зміст' : 'Показати зміст'}
+            aria-pressed={outlineOpen}
+            title="Структура документа"
+            onClick={() => setOutlineOpen(open => !open)}
+          >
+            <ListTree size={15} />
+          </button>
+          <button
+            type="button"
             className={'minimap-toggle' + (minimapOpen ? ' active' : '')}
             aria-label={minimapOpen ? 'Приховати мінімапу' : 'Показати мінімапу'}
             aria-pressed={minimapOpen}
@@ -286,6 +298,7 @@ export function EditorWorkspace({
         hidden={mode !== 'preview' && mode !== 'live'}
         dangerouslySetInnerHTML={{ __html: rendered }}
       />
+      {outlineOpen && <Outline content={content} coordinator={coordinator} />}
       {minimapOpen && (
         <Minimap
           view={editorView}

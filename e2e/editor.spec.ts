@@ -503,3 +503,40 @@ test('minimap follows the active editor surface and drives synchronized scrollin
   await page.getByRole('button', { name: 'Приховати мінімапу' }).click();
   await expect(minimap).toBeHidden();
 });
+
+test('navigates the document outline in Source, Live and Preview', async ({ page }) => {
+  const content = Array.from({ length: 36 }, (_, index) =>
+    `## Outline section ${index + 1}\n\nSection content ${index + 1} with enough text to create a scrollable document.`,
+  ).join('\n\n');
+  await page.locator('.cm-content').fill(content);
+  await page.getByRole('button', { name: 'Показати зміст' }).click();
+
+  const outline = page.getByRole('navigation', { name: 'Структура документа' });
+  await expect(outline.getByRole('button', { name: 'Outline section 36' })).toBeVisible();
+  await outline.getByRole('button', { name: 'Outline section 24' }).click();
+  await expect.poll(() => page.locator('.cm-scroller').evaluate(element => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect(outline.getByRole('button', { name: 'Outline section 24' })).toHaveAttribute('aria-current', 'location');
+
+  await page.getByRole('tab', { name: 'Live', exact: true }).click();
+  await outline.getByRole('button', { name: 'Outline section 30' }).click();
+  await expect.poll(() => page.locator('.markdown-preview').evaluate(element => element.scrollTop))
+    .toBeGreaterThan(0);
+
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await outline.getByRole('button', { name: 'Outline section 36' }).click();
+  await expect.poll(() => page.locator('.markdown-preview').evaluate(element => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
+test('updates the document outline when Markdown headings are edited', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  await editor.fill('# Original heading');
+  await page.getByRole('button', { name: 'Показати зміст' }).click();
+  const outline = page.getByRole('navigation', { name: 'Структура документа' });
+  await expect(outline.getByRole('button', { name: 'Original heading' })).toBeVisible();
+
+  await editor.fill('## Updated heading');
+  await expect(outline.getByRole('button', { name: 'Updated heading' })).toBeVisible();
+  await expect(outline.getByRole('button', { name: 'Original heading' })).toHaveCount(0);
+});

@@ -5,6 +5,8 @@ All notable changes to GitNotes are documented here.
 ## [Unreleased]
 
 ### Added
+- Optional Markdown Outline panel with Lezer-based ATX/Setext heading navigation, active-section tracking and synchronized scrolling in Source, Live and Preview.
+- Unit and Chromium regression coverage for Outline parsing, navigation and live updates.
 - Default line wrapping for long Markdown source lines in Source and Live modes, with Chromium regression coverage for horizontal overflow.
 - Desktop minimap for Markdown documents, with Lezer-based structure marks, cursor and viewport indicators, and click/drag navigation synchronized across Source, Live and Preview.
 - Chromium regression coverage for minimap navigation in all three editor modes.

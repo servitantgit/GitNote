@@ -14,3 +14,24 @@
 .editor-main.live-mode>.source-editor{display:flex;border-right:1px solid var(--border);}
 .editor-main.live-mode>.markdown-preview{border-left:0;}
 @media(max-width:700px){.editor-main.live-mode{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.editor-main.live-mode>.source-editor,.editor-main.live-mode>.markdown-preview{width:auto;min-height:0;border-right:0;border-left:0}.editor-main.live-mode>.source-editor{border-bottom:1px solid var(--border)}}
+
+/* Outline is a separate navigation surface; scrolling remains owned by the coordinator. */
+.outline-toggle{width:30px;height:29px;display:grid;place-items:center;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+.outline-toggle:hover{background:var(--hover);color:var(--text)}
+.outline-toggle.active{background:var(--selected);color:var(--accent);border-color:var(--border)}
+.editor-outline{width:220px;min-width:0;flex:0 0 220px;min-height:0;overflow:auto;border-left:1px solid var(--border);background:var(--panel);padding:10px 8px;box-sizing:border-box}
+.editor-outline-heading{display:flex;align-items:center;gap:7px;padding:3px 7px 10px;color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase}
+.editor-outline ol{list-style:none;margin:0;padding:0}
+.editor-outline li{margin:1px 0}
+.editor-outline button{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;border:0;border-radius:5px;background:transparent;color:var(--muted);font:inherit;font-size:12px;padding:5px 7px;cursor:pointer}
+.editor-outline button.level-1{padding-left:7px}
+.editor-outline button.level-2{padding-left:19px}
+.editor-outline button.level-3{padding-left:31px}
+.editor-outline button.level-4{padding-left:43px}
+.editor-outline button.level-5{padding-left:55px}
+.editor-outline button.level-6{padding-left:67px}
+.editor-outline button:hover{background:var(--hover);color:var(--text)}
+.editor-outline button.active{background:var(--selected);color:var(--accent);font-weight:600}
+.editor-outline-empty{margin:4px 7px;color:var(--muted);font-size:12px}
+@media(min-width:701px){.editor-main.live-mode{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto}}
+@media(max-width:700px){.outline-toggle,.editor-outline{display:none}}
