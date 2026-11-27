@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { WorkspaceSnapshot } from '../../core/domain/workspace';
-import type { DocumentMeta } from '../../core/domain/document-source';
+import type { DocumentMeta, DocumentRecord } from '../../core/domain/document-source';
 
 export interface LocalDraft {
   id: string;
@@ -10,9 +10,7 @@ export interface LocalDraft {
   updatedAt: number;
 }
 
-export interface LocalNote extends DocumentMeta {
-  content: string;
-}
+export type LocalNote = DocumentRecord;
 
 interface StoredWorkspace {
   id: string;

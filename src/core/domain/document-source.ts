@@ -13,6 +13,10 @@ export interface DocumentMeta {
   updatedAt: number;
 }
 
+export interface DocumentRecord extends DocumentMeta {
+  content: string;
+}
+
 export interface DocumentRead {
   content: string;
   baseSha?: string;

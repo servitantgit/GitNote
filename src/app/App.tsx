@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Files, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
-import { workspaceStore, type LocalNote } from '../infrastructure/storage/database';
+import { workspaceStore } from '../infrastructure/storage/database';
+import type { DocumentRecord } from '../core/domain/document-source';
 import { documentSource } from '../infrastructure/storage/local-document-source';
 import { WorkspaceManager, type WorkspaceSnapshot } from '../core/domain/workspace';
 import './app.css';
@@ -13,18 +14,18 @@ const INITIAL_CONTENT = '# Моя перша нотатка\n\nGitNotes — ро
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
-function makeNote(title = 'Без назви', content = ''): LocalNote {
+function makeNote(title = 'Без назви', content = ''): DocumentRecord {
   const now = Date.now();
   return { id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title, content, syncState: 'local', createdAt: now, updatedAt: now };
 }
 
-function tabForNote(note: LocalNote) {
+function tabForNote(note: DocumentRecord) {
   return { id: `note:${note.id}`, repositoryId: note.repositoryId, branch: 'main', noteId: note.id, title: note.title || 'Без назви', openedAt: Date.now() };
 }
 
 export function App() {
   const [mode, setMode] = useState<EditorMode>('source');
-  const [notes, setNotes] = useState<LocalNote[]>([]);
+  const [notes, setNotes] = useState<DocumentRecord[]>([]);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('loading');
@@ -54,7 +55,7 @@ export function App() {
     });
   }, []);
 
-  const openNote = useCallback((note: LocalNote) => {
+  const openNote = useCallback((note: DocumentRecord) => {
     const manager = managerRef.current;
     if (!manager) return;
     manager.openTab(tabForNote(note));
@@ -153,7 +154,7 @@ export function App() {
     };
   }, [notes]);
 
-  const updateActiveNote = useCallback((updates: Partial<Pick<LocalNote, 'title' | 'content'>>) => {
+  const updateActiveNote = useCallback((updates: Partial<Pick<DocumentRecord, 'title' | 'content'>>) => {
     if (!activeNote) return;
     if (updates.content !== undefined) dirtyNoteIds.current.add(activeNote.id);
     if (updates.title !== undefined) dirtyTitleNoteIds.current.add(activeNote.id);
