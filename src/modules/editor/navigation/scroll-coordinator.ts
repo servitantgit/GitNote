@@ -27,7 +27,6 @@ export function createScrollCoordinator(
 
   function publish(next: DocumentScrollPosition, sourceId?: string) {
     if (destroyed) return;
-    const previousPosition = position;
     position = normalizeScrollPosition(next, Number.MAX_SAFE_INTEGER);
     onPositionChange(position);
     listeners.forEach(listener => listener(position));
