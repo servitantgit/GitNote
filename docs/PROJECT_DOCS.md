@@ -65,7 +65,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - An in-memory map keyed by document ID stores a logical document line and fractional offset for cross-surface mode switches (it is not a browser-reload persistence feature). `src/modules/editor/navigation/scroll-position.ts` adapts this position to CodeMirror 6 and rendered Preview; Lezer-derived headings and image blocks are anchors for content-aware mapping, with proportional fallback.
 - `src/modules/editor/navigation/scroll-coordinator.ts` owns scroll-surface registration, bidirectional propagation, echo suppression, retaining the last scroll-event position on detach without re-reading a surface that React may already have hidden or reused, CodeMirror restoration scheduled through its measurement cycle after layout, and the shared `scrollTo`/`subscribe` contract. The Minimap component uses this contract to control and observe scrolling without owning a second synchronization implementation.
 - The canvas minimap is implemented as an optional desktop panel. It shows Markdown structure, cursor and logical viewport; clicking or dragging it drives all registered surfaces through the existing scroll coordinator. The minimap is not shown by default and is hidden on narrow mobile layouts.
-- No split-pane editor, Outline, language-by-extension selection, wiki-link completion, search/replace UX, interactive preview checkboxes or image-management workflow yet.
+- The separate 50/50 Split mode displays the editable Source and rendered Preview simultaneously. Both visible surfaces register with the existing per-document scroll coordinator; Live Preview remains a separate inline-editing mode. Outline, language-by-extension selection, wiki-link completion, search/replace UX, interactive preview checkboxes and image-management workflow are not implemented yet.
 
 ### Document domain and storage
 
@@ -95,7 +95,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - npm run build: TypeScript project build and Vite production build.
 - GitHub Actions workflow: .github/workflows/ci.yml, with independent Unit tests, Browser tests (Chromium) and Production build jobs.
 - Playwright failure artifacts include HTML report, screenshots and traces.
-- Scroll regression coverage checks Source and Live Preview continuity, Preview synchronization, independent positions for separate notes, and Preview image-load/ResizeObserver notifications. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live Preview and Preview.
+- Scroll regression coverage checks Source and Live Preview continuity, Preview synchronization, independent positions for separate notes, Preview image-load/ResizeObserver notifications, and Split's simultaneous bidirectional Source/Preview synchronization. Minimap coverage verifies Lezer-derived line marks, pointer mapping, click navigation and dragging in Source, Live Preview and Preview.
 - Do not mark a commit verified unless all three latest CI jobs pass.
 
 ## Roadmap and status
@@ -119,7 +119,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [ ] Line wrapping.
 - [ ] Outline.
 - [x] Minimap with synchronized click/drag navigation and Chromium coverage.
-- [ ] Separate 50/50 Split mode with synchronized scrolling.
+- [x] Separate 50/50 Split mode with bidirectional synchronized scrolling.
 - [ ] Interactive task-list checkboxes that update Markdown source.
 - [ ] [[ suggestions.
 - [ ] Insert URL on selected text.
