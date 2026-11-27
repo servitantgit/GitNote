@@ -22,7 +22,7 @@
 
 - Source and Live Preview share one persistent CodeMirror 6 instance. Switching to Preview hides the editor without destroying its undo history or selection.
 - The formatting toolbar supports bold, italic, strikethrough, inline code, links, headings, lists, blockquotes and horizontal rules.
-- Live Preview preserves Markdown syntax inside fenced code blocks and inline code spans.
+- Live Preview uses the Lezer Markdown syntax tree to identify fenced and inline code ranges before applying inline decorations, so formatting/link rules skip code. Other presentation rules are still lightweight line-level transforms.
 - Undo/redo use CodeMirror history. CodeMirror's standard editing keymaps and search panel remain available.
 - Preview renders GitHub-Flavored Markdown through Marked and sanitizes generated HTML with DOMPurify before insertion.
 - Editor content is read and written through the `DocumentSource` contract. The current implementation is `LocalIndexedDbDocumentSource`; it performs no network or Git operations.

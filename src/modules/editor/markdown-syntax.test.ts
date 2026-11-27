@@ -4438,7 +4438,7 @@ describe('Lezer Markdown syntax tree', () => {
       extensions: [markdown()],
     });
     const names: string[] = [];
-    syntaxTree(state).iterate({ enter: node => names.push(node.name) });
+    syntaxTree(state).iterate({ enter: node => { names.push(node.name); } });
     expect(names).toContain('FencedCode');
     expect(names).toContain('InlineCode');
     expect(names).toContain('CodeText');
