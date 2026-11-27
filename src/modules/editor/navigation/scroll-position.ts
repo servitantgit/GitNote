@@ -1,5 +1,5 @@
 import { markdownLanguage } from '@codemirror/lang-markdown';
-import { EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 
 export interface DocumentScrollPosition {
   /** Zero-based document line at the top edge of the viewport. */

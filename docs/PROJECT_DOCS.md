@@ -34,7 +34,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 - Design changes with maintainability and safe future evolution in mind, not only immediate behavior.
 - Keep one cohesive responsibility per module, with clear interfaces and dependency direction. Avoid circular dependencies and hidden coupling.
-- Live files when they begin accumulating independent responsibilities; keep central application/editor components focused rather than using them as general-purpose containers.
+- Split files when they begin accumulating independent responsibilities; keep central application/editor components focused rather than using them as general-purpose containers.
 - Avoid both oversized monoliths and excessive fragmentation into trivial helper files. Module boundaries should reflect meaningful responsibilities.
 - Evaluate dependency upgrades for breaking changes and downstream effects before adopting them; verify affected behavior with targeted regression tests.
 - Proactively identify and explain technical risks and preventive improvements. Recommendations do not authorize unapproved scope expansion or broad refactoring.
@@ -60,12 +60,12 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Formatting toolbar: bold, italic, strikethrough, inline code, link, H1/H2, bullet/numbered lists, quote, horizontal rule, undo and redo.
 - Keyboard shortcuts for common inline formatting.
 - Preview uses Marked with GFM and DOMPurify sanitization.
-- Live decorates Markdown syntax. Lezer syntax-tree ranges identify fenced and inline code so formatting does not alter code contents; remaining presentation transformations are line-oriented.
+- Live keeps Markdown source editing and rendered output visible together; Markdown formatting is handled by the rendered Preview pane.
 - A map keyed by document ID retains CodeMirror EditorState between tab switches, including undo history and selection. Scroll position has one owner: the logical per-document position map and scroll coordinator. CodeMirror and Preview adapters restore that shared position, avoiding competing native and logical restoration mechanisms.
 - An in-memory map keyed by document ID stores a logical document line and fractional offset for cross-surface mode switches (it is not a browser-reload persistence feature). `src/modules/editor/navigation/scroll-position.ts` adapts this position to CodeMirror 6 and rendered Preview; Lezer-derived headings and image blocks are anchors for content-aware mapping, with proportional fallback.
 - `src/modules/editor/navigation/scroll-coordinator.ts` owns scroll-surface registration, bidirectional propagation, echo suppression, retaining the last scroll-event position on detach without re-reading a surface that React may already have hidden or reused, CodeMirror restoration scheduled through its measurement cycle after layout, and the shared `scrollTo`/`subscribe` contract. The Minimap component uses this contract to control and observe scrolling without owning a second synchronization implementation.
 - The canvas minimap is implemented as an optional desktop panel. It shows Markdown structure, cursor and logical viewport; clicking or dragging it drives all registered surfaces through the existing scroll coordinator. The minimap is not shown by default and is hidden on narrow mobile layouts.
-- The separate 50/50 Live mode displays the editable Source and rendered Preview simultaneously. Both visible surfaces register with the existing per-document scroll coordinator; Live remains a separate inline-editing mode. Outline, language-by-extension selection, wiki-link completion, search/replace UX, interactive preview checkboxes and image-management workflow are not implemented yet.
+- Live displays the editable Source and rendered Preview simultaneously. Both visible surfaces register with the existing per-document scroll coordinator. Outline, language-by-extension selection, wiki-link completion, search/replace UX, interactive preview checkboxes and image-management workflow are not implemented yet.
 
 ### Document domain and storage
 
@@ -107,7 +107,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [x] Introduce local VFS domain contract and IndexedDB implementation.
 - [x] Add folder creation, atomic document-plus-file creation, file registration, rename, move and recursive delete operations.
 - [x] Preserve CodeMirror EditorState per document tab.
-- [x] Use Lezer syntax-tree information to protect code ranges in Live.
+- [x] Use Lezer syntax-tree information for Markdown-aware minimap structure and preview scroll anchors.
 - [x] Verify per-tab cursor, selection, scroll and undo history in Chromium.
 - [x] Add/verify visual browser regression coverage for Source and Live.
 - [x] Fix all failures in the latest CI browser-test run.
