@@ -56,7 +56,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Local-only status is shown; GitHub authentication and remote repository selection are not implemented.
 - Startup safely handles the React StrictMode double invocation: if another initialization pass creates the `Notes` folder first, the second pass confirms the folder exists and continues.
 - Search, settings and attachment controls are placeholders/disabled.
-- The sidebar renders one recursive VFS tree for notes and binary files. File icons are format-specific and color-coded consistently with the Create menu. The Create menu creates Markdown notes and blank DOCX, XLSX and PPTX files in the selected folder, or the legacy `Notes/` / `Documents/` defaults when no folder is selected. Imported supported files go to the selected folder, or `Documents/` by default. Closing the last open tab leaves the workspace with no active document; this empty tab state is persisted and restored after reload, without deleting the underlying file.
+- The sidebar renders one recursive VFS tree for notes and binary files. File icons are format-specific and color-coded consistently with the Create menu. The Create menu uses an explicitly controlled, keyboard-dismissable popover with accessible menu-item actions; it creates Markdown notes and blank DOCX, XLSX and PPTX files in the selected folder, or the legacy `Notes/` / `Documents/` defaults when no folder is selected. Imported supported files go to the selected folder, or `Documents/` by default. Closing the last open tab leaves the workspace with no active document; this empty tab state is persisted and restored after reload, without deleting the underlying file.
 
 ### Markdown editor
 
