@@ -156,7 +156,7 @@ function makePptxFixture(): Buffer {
 }
 
 async function createNoteFromMenu(page: import('@playwright/test').Page) {
-  const trigger = page.getByRole('button', { name: 'Створити', exact: true });
+  const trigger = page.locator('.create-menu > button[aria-label="Створити"]');
   await trigger.click();
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('menuitem', { name: 'Створити нотатку' }).click();
@@ -211,11 +211,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('closes the last tab without deleting the note and keeps the workspace tabless after reload', async ({ page }) => {
-  const tabs = page.getByRole('tab');
+  const tabs = page.locator('.document-tabs [role="tab"]');
   await expect(tabs).toHaveCount(1);
   const title = await tabs.first().innerText();
   await page.getByRole('button', { name: 'Закрити вкладку' }).click();
-  await expect(page.getByRole('tab')).toHaveCount(0);
+  await expect(page.locator('.document-tabs [role="tab"]')).toHaveCount(0);
   await expect(page.locator('.workspace-document-panel')).toHaveCount(0);
   await expect(page.getByRole('button', { name: title })).toBeVisible();
 
@@ -253,7 +253,7 @@ test('creates blank DOCX, XLSX and PPTX files in the workspace', async ({ page }
     { label: 'Презентацію PowerPoint (.pptx)', name: 'Без назви.pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
   ];
   for (const item of cases) {
-    const trigger = page.getByRole('button', { name: 'Створити' });
+    const trigger = page.locator('.create-menu > button[aria-label="Створити"]');
     await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     await page.getByRole('menuitem', { name: item.label }).click();
