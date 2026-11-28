@@ -59,7 +59,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 ### Markdown editor
 
 - CodeMirror 6 with Source, Live and Preview modes. Long Markdown lines wrap in the editable Source pane in both Source and Live modes; horizontal scrolling is not required for ordinary prose.
-- Markdown language extension and basic editor facilities: line numbers, fold gutter, active line, bracket matching, close brackets, autocomplete and indentation.
+- Markdown language extension with fenced Java and Python syntax highlighting selected by code-fence language tags, plus basic editor facilities: line numbers, fold gutter, active line, bracket matching, close brackets and indentation. Java/Python support is syntax highlighting only, not IDE functionality.
 - Formatting toolbar: bold, italic, strikethrough, inline code, link, H1/H2, bullet/numbered lists, quote, horizontal rule, undo and redo.
 - Keyboard shortcuts for common inline formatting.
 - Preview uses Marked with GFM and DOMPurify sanitization.
@@ -124,7 +124,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Stage 1: Markdown editing experience
 
-- [ ] Language mode selected by file extension.
+- [x] Syntax highlighting for Java and Python in Markdown fenced code blocks, selected by the language tag after the opening fence. This is highlighting only; no language-specific completion, diagnostics, compilation or execution.
 - [x] Line wrapping in Source and Live, enabled by default through CodeMirror 6.
 - [x] Outline navigation with Lezer-based headings and synchronized scrolling across Source, Live and Preview.
 - [x] Minimap with synchronized click/drag navigation and Chromium coverage.

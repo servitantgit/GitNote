@@ -79,3 +79,8 @@ Attachment metadata includes a path relative to the directory containing its par
 - `settings`, `help`, `search`: independent modules with versioned data/configuration.
 
 These are planned boundaries, not claims that they are implemented.
+
+
+## Markdown fenced-code syntax highlighting
+
+The Markdown CodeMirror 6 language extension registers Java and Python through `src/modules/editor/code-languages.ts`. Markdown fenced-code info strings (`java`, `python`, `py`, `python3`) select the corresponding Lezer language parser and syntax highlighting. These language packages are used only for highlighting; GitNotes does not expose language-specific completion, diagnostics, compilation or code execution. Language modules are dynamically imported when their fenced language is encountered.

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
+import { codeLanguages } from './code-languages';
 import { redo, undo } from '@codemirror/commands';
 import { Prec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
@@ -127,7 +128,7 @@ export function EditorWorkspace({
     };
   };
 
-  const extensions = useMemo(() => [markdown(), markdownKeymap, EditorView.lineWrapping], []);
+  const extensions = useMemo(() => [markdown({ codeLanguages }), markdownKeymap, EditorView.lineWrapping], []);
   const rendered = useMemo(() => mode === 'preview' || mode === 'live'
     ? DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string)
     : '', [content, mode]);
