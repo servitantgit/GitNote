@@ -157,7 +157,7 @@ function makePptxFixture(): Buffer {
 
 async function createNoteFromMenu(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Створити' }).click();
-  await page.getByRole('menuitem', { name: 'Створити нотатку' }).click();
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
 }
 
 async function importOfficeFile(page: import('@playwright/test').Page, name: string, mimeType: string, buffer: Buffer) {
@@ -208,6 +208,20 @@ test.beforeEach(async ({ page }) => {
   }, { message: 'The local workspace should initialize before editor tests run' }).toBe('ready');
 });
 
+test('closes the last tab without deleting the note and keeps the workspace tabless after reload', async ({ page }) => {
+  const tabs = page.getByRole('tab');
+  await expect(tabs).toHaveCount(1);
+  const title = await tabs.first().innerText();
+  await page.getByRole('button', { name: 'Закрити вкладку' }).click();
+  await expect(page.getByRole('tab')).toHaveCount(0);
+  await expect(page.locator('.workspace-document-panel')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('tab')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
+});
+
 test('creates a folder and places a new note inside the selected folder', async ({ page }) => {
   page.once('dialog', dialog => dialog.accept('Projects'));
   await page.getByRole('button', { name: 'Створити папку' }).click();
@@ -238,7 +252,7 @@ test('creates blank DOCX, XLSX and PPTX files in the workspace', async ({ page }
   ];
   for (const item of cases) {
     await page.getByRole('button', { name: 'Створити' }).click();
-    await page.getByRole('menuitem', { name: item.label }).click();
+    await page.getByRole('button', { name: item.label }).click();
     await expect(page.getByRole('tab', { name: item.name })).toBeVisible();
     await expect(page.getByRole('button', { name: item.name })).toBeVisible();
     await expect(page.getByTestId('office-document-viewer').last()).toBeVisible();
