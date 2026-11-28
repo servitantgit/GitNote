@@ -124,7 +124,7 @@ async function extractBinaryText(document: BinaryDocumentRecord, format: Documen
     return parsed.body.textContent ?? '';
   }
 
-  if (format === 'svg') {
+  if (document.title.toLocaleLowerCase().endsWith('.svg')) {
     const source = await document.content.text();
     const parsed = new DOMParser().parseFromString(source, 'image/svg+xml');
     if (parsed.querySelector('parsererror')) throw new Error('Некоректний SVG-документ.');
