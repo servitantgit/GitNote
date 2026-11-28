@@ -2,7 +2,8 @@ import type { DocumentRecord, BinaryDocumentRecord } from '../../core/domain/doc
 import { detectDocumentFormat, type DocumentFormatId } from '../../core/domain/document-format';
 import { binaryDocumentSource } from '../../infrastructure/storage/local-document-source';
 import { database, type LocalSearchDocument } from '../../infrastructure/storage/database';
-import { createSearchGrams } from './search-index';
+import { createSearchGrams, hasCurrentSearchGrams } from './search-index';
+import { findSimilarTextMatches } from './search-query';
 import { DocumentClient } from '../../vendor/office-engine';
 import type { Block } from '../../vendor/office-engine/src/core/docx/types';
 import { docxToText, slidesToText } from '../../vendor/office-engine/src/react/file/text';
@@ -14,6 +15,7 @@ export interface WorkspaceSearchResult {
   path?: string;
   format: DocumentFormatId;
   matchCount: number;
+  matchKind: 'exact' | 'similar';
   snippet: string;
 }
 
@@ -176,7 +178,7 @@ async function syncSearchIndex(
 
   for (const note of notes) {
     const cached = await database.searchDocuments.get(note.id);
-    if (!cached || cached.documentType !== 'note' || cached.sourceUpdatedAt !== note.updatedAt || cached.text !== note.content) {
+    if (!cached || cached.documentType !== 'note' || cached.sourceUpdatedAt !== note.updatedAt || cached.text !== note.content || !hasCurrentSearchGrams(cached.grams, note.content)) {
       await saveSearchDocument(note, 'note', 'markdown', note.content);
     } else if (cached.title !== note.title || cached.path !== note.path) {
       await database.searchDocuments.update(note.id, { title: note.title || 'Без назви', path: note.path });
@@ -197,9 +199,14 @@ async function syncSearchIndex(
 
     const cached = await database.searchDocuments.get(meta.id);
     if (cached && cached.documentType === 'binary' && cached.sourceUpdatedAt === meta.updatedAt) {
+      const updates: Partial<LocalSearchDocument> = {};
       if (cached.title !== meta.title || cached.path !== meta.path || cached.format !== format) {
-        await database.searchDocuments.update(meta.id, { title: meta.title || 'Без назви', path: meta.path, format });
+        updates.title = meta.title || 'Без назви';
+        updates.path = meta.path;
+        updates.format = format;
       }
+      if (!hasCurrentSearchGrams(cached.grams, cached.text)) updates.grams = createSearchGrams(cached.text);
+      if (Object.keys(updates).length) await database.searchDocuments.update(meta.id, updates);
       completed += 1;
       onProgress?.({ completed, total, currentTitle: meta.title });
       continue;
@@ -232,7 +239,7 @@ export async function searchWorkspaceDocuments(
 
   const synced = await syncSearchIndex(notes, onProgress);
   const grams = createSearchGrams(term);
-  let candidates: LocalSearchDocument[];
+  let exactCandidates: LocalSearchDocument[];
 
   if (grams.length) {
     const frequencies = await Promise.all(grams.map(async gram => ({
@@ -240,33 +247,61 @@ export async function searchWorkspaceDocuments(
       count: await database.searchDocuments.where('grams').equals(gram).count(),
     })));
     const rarest = frequencies.reduce((best, current) => current.count < best.count ? current : best);
-    candidates = await database.searchDocuments.where('grams').equals(rarest.gram).toArray();
+    exactCandidates = await database.searchDocuments.where('grams').equals(rarest.gram).toArray();
   } else {
-    candidates = await database.searchDocuments.toArray();
+    exactCandidates = await database.searchDocuments.toArray();
   }
 
-  const report: WorkspaceSearchReport = {
-    results: [],
-    scannedCount: candidates.length,
-    skippedPdfCount: synced.skippedPdfCount,
-    errors: synced.errors,
-  };
-
-  for (const document of candidates) {
+  const results: WorkspaceSearchResult[] = [];
+  for (const document of exactCandidates) {
     const match = findTextMatches(document.text, term);
     if (!match) continue;
-    report.results.push({
+    results.push({
       documentId: document.id,
       documentType: document.documentType,
       title: document.title || 'Без назви',
       path: document.path,
       format: document.format as DocumentFormatId,
       matchCount: match.count,
+      matchKind: 'exact',
       snippet: match.snippet,
     });
   }
 
-  onProgress?.({ completed: candidates.length, total: candidates.length, currentTitle: '' });
+  let scannedCount = exactCandidates.length;
+  // Fuzzy/prefix matching is a fallback: exact substring results always win.
+  if (results.length === 0) {
+    const queryTokens = term.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+    const fuzzyGrams = [...new Set(queryTokens.flatMap(token => createSearchGrams(token)))];
+    if (queryTokens.length && queryTokens.every(token => token.length >= 3) && fuzzyGrams.length) {
+      const fuzzyCandidates = await database.searchDocuments.where('grams').anyOf(fuzzyGrams).toArray();
+      scannedCount = fuzzyCandidates.length;
+
+      for (const document of fuzzyCandidates) {
+        const match = findSimilarTextMatches(document.text, term);
+        if (!match) continue;
+        results.push({
+          documentId: document.id,
+          documentType: document.documentType,
+          title: document.title || 'Без назви',
+          path: document.path,
+          format: document.format as DocumentFormatId,
+          matchCount: match.count,
+          matchKind: 'similar',
+          snippet: match.snippet,
+        });
+      }
+    }
+  }
+
+  const report: WorkspaceSearchReport = {
+    results,
+    scannedCount,
+    skippedPdfCount: synced.skippedPdfCount,
+    errors: synced.errors,
+  };
+
+  onProgress?.({ completed: scannedCount, total: scannedCount, currentTitle: '' });
   report.results.sort((a, b) => a.title.localeCompare(b.title));
   return report;
 }

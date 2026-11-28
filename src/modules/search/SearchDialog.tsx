@@ -77,13 +77,16 @@ export function SearchDialog({ notes, onClose, onOpenResult }: Props) {
                           {result.path && <small>{result.path}</small>}
                           <span>{result.snippet}</span>
                         </span>
-                        <span className="workspace-search-match-count">{result.matchCount}</span>
+                        {result.matchKind === 'similar'
+                          ? <span className="workspace-search-match-kind">Схожий збіг</span>
+                          : <span className="workspace-search-match-count">{result.matchCount}</span>}
                       </button>
                     </li>
                   ))}
                 </ul>
               )}
               {report.results.length === 0 && <p className="workspace-search-empty">Збігів не знайдено.</p>}
+              {report.results.some(result => result.matchKind === 'similar') && <p className="workspace-search-note">Точних збігів не знайдено. Показано результати за префіксом або близьким написанням слів.</p>}
               {report.skippedPdfCount > 0 && <p className="workspace-search-note">PDF-файли пропущено ({report.skippedPdfCount}): поточний браузерний переглядач не надає текст документа для індексації. OCR не виконується.</p>}
               {report.errors.length > 0 && <p className="workspace-search-note">Не вдалося прочитати {report.errors.length} документів. {report.errors.slice(0, 3).join('; ')}</p>}
               <p className="workspace-search-note">Пошук охоплює всі локальні Markdown-нотатки та збережені версії підтримуваних документів. Незбережені зміни Office-файлів не включаються.</p>

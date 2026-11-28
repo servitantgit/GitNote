@@ -3,7 +3,7 @@
 All notable changes to GitNotes are documented here.
 
 ## [Unreleased]
-- Add global search across local Markdown notes and saved DOCX, XLSX, PPTX, HTML and SVG documents, with extracted text and a multi-entry trigram index persisted in IndexedDB. Reuse cached Office extraction after reload and refresh stale Markdown entries. PDF indexing remains unsupported.
+- Add global search across local Markdown notes and saved DOCX, XLSX, PPTX, HTML and SVG documents, with extracted text and a multi-entry bigram/trigram index persisted in IndexedDB. Exact matches take priority; prefix and typo-tolerant token matching is used only when no exact result exists. Reuse cached Office extraction after reload and refresh stale Markdown entries. PDF indexing remains unsupported.
 - Add a read-only PDF viewer using the browser's native PDF renderer, with original-file download and system printing.
 - Add shared workspace Download and Print actions for Markdown and imported documents; Markdown uses a sanitized print rendering, while Office/HTML delegates to the vendored engine's existing print controller.
 - Vendor the `office-engine` v0.18.0 runtime source required by GitNotes in `src/vendor/office-engine` and remove the external npm package dependency; GitNotes imports and builds its own copy. Document the selective, manually reviewed upstream update policy.

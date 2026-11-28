@@ -1240,6 +1240,21 @@ test('refreshes a Markdown search entry when content changes without a timestamp
   await expect(page.locator('.workspace-search-results button')).toContainText('Index refresh note');
 });
 
+test('finds a note by word prefixes and a small typo when exact search has no result', async ({ page }) => {
+  await createNoteFromMenu(page);
+  await page.getByLabel('Назва нотатки').fill('Fuzzy search note');
+  await page.locator('.cm-content').fill('Planning notes contain a unique phrase for this search test.');
+  await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
+
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('plan uniqe phrase');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+
+  const result = page.locator('.workspace-search-results button');
+  await expect(result).toContainText('Fuzzy search note');
+  await expect(result).toContainText('Схожий збіг');
+});
+
 test('searches text in imported DOCX documents', async ({ page }) => {
   await importOfficeFile(page, 'Search.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', makeDocxFixture());
   await expect(page.getByTestId('office-document-viewer')).toBeVisible();

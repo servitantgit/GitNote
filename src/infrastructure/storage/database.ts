@@ -26,7 +26,7 @@ export interface LocalSearchDocument {
   path?: string;
   format: string;
   text: string;
-  /** Unique lower-case trigrams used by the multi-entry IndexedDB index. */
+  /** Unique lower-case bigrams and trigrams used by the multi-entry IndexedDB index. */
   grams: string[];
   /** Source document timestamp used to detect stale extracted text. */
   sourceUpdatedAt: number;

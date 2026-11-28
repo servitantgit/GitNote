@@ -28,3 +28,5 @@
 .workspace-search-spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:workspace-search-spin .8s linear infinite}
 @keyframes workspace-search-spin{to{transform:rotate(360deg)}}
 @media(max-width:600px){.workspace-search-backdrop{padding:5vh 10px 10px}.workspace-search-dialog{max-height:90vh}.workspace-search-header,.workspace-search-form{padding-left:12px;padding-right:12px}.workspace-search-body{padding-left:12px;padding-right:12px}.workspace-search-form button{padding:0 10px}}
+
+.workspace-search-match-kind{flex:none;padding:2px 7px;border-radius:10px;background:var(--hover);color:var(--muted);font-size:10px;white-space:nowrap}
