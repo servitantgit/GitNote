@@ -155,6 +155,11 @@ function makePptxFixture(): Buffer {
   });
 }
 
+async function createNoteFromMenu(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Створити' }).click();
+  await page.getByRole('menuitem', { name: 'Створити нотатку' }).click();
+}
+
 async function importOfficeFile(page: import('@playwright/test').Page, name: string, mimeType: string, buffer: Buffer) {
   const chooserPromise = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Імпортувати документ' }).click();
@@ -209,7 +214,7 @@ test('creates a folder and places a new note inside the selected folder', async 
   const tree = page.getByTestId('workspace-file-tree');
   await expect(tree.getByRole('button', { name: 'Projects' })).toBeVisible();
   await tree.getByRole('button', { name: 'Projects' }).click();
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
 
   await expect.poll(async () => page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -223,6 +228,47 @@ test('creates a folder and places a new note inside the selected folder', async 
       request.onerror = () => reject(request.error);
     });
   })).toBe(true);
+});
+
+test('creates blank DOCX, XLSX and PPTX files in the workspace', async ({ page }) => {
+  const cases = [
+    { label: 'Документ Word (.docx)', name: 'Без назви.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+    { label: 'Таблицю Excel (.xlsx)', name: 'Без назви.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    { label: 'Презентацію PowerPoint (.pptx)', name: 'Без назви.pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+  ];
+  for (const item of cases) {
+    await page.getByRole('button', { name: 'Створити' }).click();
+    await page.getByRole('menuitem', { name: item.label }).click();
+    await expect(page.getByRole('tab', { name: item.name })).toBeVisible();
+    await expect(page.getByRole('button', { name: item.name })).toBeVisible();
+    await expect(page.getByTestId('office-document-viewer').last()).toBeVisible();
+  }
+  const stored = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return new Promise<Array<{ title: string; mediaType: string; size: number; signature: number[] }>>((resolve, reject) => {
+      const request = db.transaction('binaryDocuments', 'readonly').objectStore('binaryDocuments').getAll();
+      request.onsuccess = async () => {
+        const created = request.result.filter((item: { title: string }) => item.title.startsWith('Без назви.'));
+        const values = await Promise.all(created.map(async (item: { title: string; mediaType: string; size: number; content: Blob }) => ({
+          title: item.title, mediaType: item.mediaType, size: item.size,
+          signature: [...new Uint8Array(await item.content.slice(0, 4).arrayBuffer())],
+        })));
+        resolve(values);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  });
+  expect(stored).toHaveLength(3);
+  for (const item of cases) {
+    const record = stored.find(entry => entry.title === item.name);
+    expect(record?.mediaType).toBe(item.mime);
+    expect(record?.size).toBeGreaterThan(0);
+    expect(record?.signature).toEqual([0x50, 0x4b, 0x03, 0x04]);
+  }
 });
 
 test('imports a local document, opens it and restores its Blob after reload', async ({ page }) => {
@@ -423,7 +469,7 @@ test('opens the workspace and initializes the local note', async ({ page }) => {
 });
 
 test('creates a note, autosaves its content and restores it after reload', async ({ page }) => {
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Без назви');
   await page.getByLabel('Назва нотатки').fill('Browser test note');
@@ -501,7 +547,7 @@ test('applies Markdown formatting from the toolbar to the selected text', async 
 });
 
 test('deletes a note after confirmation', async ({ page }) => {
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
   await page.getByLabel('Назва нотатки').fill('Note to delete');
   await expect(page.getByRole('tab', { name: 'Note to delete' })).toBeVisible();
@@ -513,7 +559,7 @@ test('deletes a note after confirmation', async ({ page }) => {
 });
 
 test('restores each note editor state and undo history after switching tabs', async ({ page }) => {
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
   const editor = page.locator('.cm-content');
 
@@ -523,7 +569,7 @@ test('restores each note editor state and undo history after switching tabs', as
   await editor.press('Home');
   await editor.press('ArrowRight');
 
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(2);
   await editor.fill('Note B');
 
@@ -544,7 +590,7 @@ test('restores each note editor state and undo history after switching tabs', as
 });
 
 test('restores one logical scroll position per note across Source and Preview when layout is stable', async ({ page }) => {
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
 
   const content = Array.from({ length: 80 }, (_, index) =>
@@ -634,7 +680,7 @@ test('restores one logical scroll position per note across Source and Preview wh
       && matchesPosition(next.source, liveLogicalPosition));
   }).toBe(true);
 
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(2);
   await page.getByRole('tab', { name: 'Без назви', exact: true }).first().click();
   await expect.poll(() => source.evaluate(element => element.scrollTop))
@@ -716,7 +762,7 @@ test('highlights Java and Python fenced code in rendered Markdown Preview', asyn
 
 test('stores newly created notes as files in the local VFS', async ({ page }) => {
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
 
   const vfs = await page.evaluate(async () => {
@@ -781,7 +827,7 @@ test('keeps independent scroll positions for two notes across all editor modes',
   const source = page.locator('.cm-scroller');
   const tabs = page.getByRole('tab', { name: 'Без назви', exact: true });
 
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(tabs).toHaveCount(1);
   await editor.fill(Array.from({ length: 100 }, (_, index) => `Note A paragraph ${index + 1}`).join('\n\n'));
   await source.evaluate(element => {
@@ -790,7 +836,7 @@ test('keeps independent scroll positions for two notes across all editor modes',
   });
   const noteAScroll = await source.evaluate(element => element.scrollTop);
 
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await createNoteFromMenu(page);
   await expect(tabs).toHaveCount(2);
   await editor.fill(Array.from({ length: 100 }, (_, index) => `Note B paragraph ${index + 1}`).join('\n\n'));
   await source.evaluate(element => {
