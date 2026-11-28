@@ -845,7 +845,7 @@ test('renames and moves VFS nodes atomically and recursively removes linked docu
     }, '[Target](../target.md)\\n\\n```md\\n[Example](../target.md)\\n```');
     await workspaceFileSystem.registerDocument(repositoryId, id, 'Notes/VfsTest/Nested/file.md');
     await workspaceFileSystem.createDocument({
-      id: targetId, repositoryId, title: 'Target', syncState: 'local',
+      id: targetId, repositoryId, title: 'Target', content: '', syncState: 'local',
       createdAt: now, updatedAt: now,
     }, 'Notes/VfsTest/target.md');
 

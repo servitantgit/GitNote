@@ -23,13 +23,13 @@ test('renames, moves by drag and drop, and recursively deletes workspace tree en
   const sample = page.getByRole('button', { name: 'sample.png', exact: true });
   await expect(sample).toBeVisible();
 
-  await page.getByRole('button', { name: 'Дії: sample.png' }).click();
+  await page.locator('.file-tree-entry').filter({ has: page.getByRole('button', { name: 'sample.png', exact: true }) }).locator('.file-tree-more').click();
   page.once('dialog', dialog => dialog.accept('renamed.png'));
   await page.getByRole('menuitem', { name: 'Перейменувати' }).click();
   const renamed = page.getByRole('button', { name: 'renamed.png', exact: true });
   await expect(renamed).toBeVisible();
 
-  await page.getByRole('button', { name: 'Дії: renamed.png' }).click();
+  await page.locator('.file-tree-entry').filter({ has: page.getByRole('button', { name: 'renamed.png', exact: true }) }).locator('.file-tree-more').click();
   await page.getByLabel('Перемістити renamed.png до папки').selectOption('Tree B');
   await page.getByRole('button', { name: 'Перемістити', exact: true }).click();
   await treeB.click();
@@ -53,7 +53,7 @@ test('renames, moves by drag and drop, and recursively deletes workspace tree en
     return nodes.some(node => node.path === 'Tree A/renamed.png');
   })).toBe(true);
 
-  await page.getByRole('button', { name: 'Дії: Tree A' }).click();
+  await treeA.locator('..').locator('.file-tree-more').click();
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('menuitem', { name: 'Видалити' }).click();
   await expect(treeA).toHaveCount(0);

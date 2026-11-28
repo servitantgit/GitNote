@@ -80,7 +80,8 @@ export function WorkspaceFileTree({
         <button
           type="button"
           className="file-tree-more"
-          aria-label={`Дії: ${node.name}`}
+          aria-label="Меню дій"
+          title={`Дії: ${node.name}`}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           disabled={disabled}
