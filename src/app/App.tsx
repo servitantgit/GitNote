@@ -9,6 +9,10 @@ import type { BinaryDocumentRecord, DocumentRecord } from '../core/domain/docume
 import { binaryDocumentSource, documentSource } from '../infrastructure/storage/local-document-source';
 import { workspaceFileSystem } from '../infrastructure/storage/local-workspace-file-system';
 import { validateWorkspaceName } from '../core/domain/workspace-file-system';
+import { detectDocumentFormat } from '../core/domain/document-format';
+import { DocumentActions } from '../modules/documents/DocumentActions';
+import { downloadDocument } from '../modules/documents/document-download';
+import { printMarkdownDocument } from '../modules/documents/markdown-print';
 import { WorkspaceManager, type WorkspaceSnapshot } from '../core/domain/workspace';
 import './app.css';
 
@@ -29,6 +33,7 @@ async function ensureWorkspaceFolder(name: string): Promise<void> {
 
 const OfficeDocumentViewer = lazy(() => import('../modules/documents/OfficeDocumentViewer').then(module => ({ default: module.OfficeDocumentViewer })));
 const HtmlDocumentViewer = lazy(() => import('../modules/documents/html/HtmlDocumentViewer').then(module => ({ default: module.HtmlDocumentViewer })));
+const PdfDocumentViewer = lazy(() => import('../modules/documents/PdfDocumentViewer').then(module => ({ default: module.PdfDocumentViewer })));
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
@@ -49,6 +54,8 @@ export function App() {
   const [activeBinaryDocument, setActiveBinaryDocument] = useState<BinaryDocumentRecord | null>(null);
   const [binaryDirty, setBinaryDirty] = useState(false);
   const [binarySaveState, setBinarySaveState] = useState<SaveState>('saved');
+  const [binaryPrintRequest, setBinaryPrintRequest] = useState(0);
+  const [binaryDownloadRequest, setBinaryDownloadRequest] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -240,8 +247,8 @@ export function App() {
     try {
       const name = validateWorkspaceName(file.name);
       const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
-      if (!['.docx', '.xlsx', '.pptx', '.md', '.html', '.svg'].includes(extension)) {
-        throw new Error('Підтримуються формати DOCX, XLSX, PPTX, MD, HTML та SVG.');
+      if (!['.docx', '.xlsx', '.pptx', '.md', '.html', '.svg', '.pdf'].includes(extension)) {
+        throw new Error('Підтримуються формати DOCX, XLSX, PPTX, MD, HTML, SVG та PDF.');
       }
       await ensureWorkspaceFolder('Documents');
       const now = Date.now();
@@ -362,6 +369,9 @@ export function App() {
   const activeRepository = workspace?.repositories.find(repository => repository.id === activeRepositoryId);
   const activeTabRepository = activeTab ? workspace?.repositories.find(repository => repository.id === activeTab.repositoryId) : null;
   const remoteAllowed = Boolean(activeTab && managerRef.current?.canUseRemote(activeTab.repositoryId, 'sync'));
+  const activeBinaryFormat = activeBinaryDocument
+    ? detectDocumentFormat(activeBinaryDocument.title, activeBinaryDocument.mediaType).id
+    : null;
 
   return (
     <main className="app-shell">
@@ -391,7 +401,7 @@ export function App() {
               <FileUp size={16} />
             </button>
           </div>
-          <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.md,.html,.svg" aria-label="Файл для імпорту"
+          <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.md,.html,.svg,.pdf" aria-label="Файл для імпорту"
             onChange={event => {
               const file = event.target.files?.[0];
               event.target.value = '';
@@ -435,17 +445,28 @@ export function App() {
                   {binarySaveState === 'saving' ? <LoaderCircle size={14} /> : binarySaveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}
                   {binarySaveState === 'saving' ? 'Збереження…' : binarySaveState === 'error' ? 'Помилка збереження' : binaryDirty ? 'Є незбережені зміни' : 'Збережено локально'}
                 </span>
+                <DocumentActions
+                  onDownload={() => {
+                    if (activeBinaryFormat === 'pdf' || activeBinaryFormat === 'image') downloadDocument(activeBinaryDocument.content, activeBinaryDocument.title);
+                    else setBinaryDownloadRequest(request => request + 1);
+                  }}
+                  onPrint={() => setBinaryPrintRequest(request => request + 1)}
+                />
                 <button className="icon-button delete-note-button" aria-label="Видалити документ" title="Видалити документ" onClick={() => void deleteActiveBinaryDocument()}><Trash2 size={16} /></button>
                 <button className="icon-button" aria-label="Закрити документ" title="Закрити документ" onClick={() => { if (canLeaveBinaryDocument()) setActiveBinaryDocument(null); }}><X size={16} /></button>
               </div>
             </div>
-            {activeBinaryDocument.title.toLowerCase().endsWith('.html') ? (
+            {activeBinaryFormat === 'pdf' ? (
+              <Suspense fallback={<div className="office-viewer-loading">Завантаження переглядача PDF…</div>}>
+                <PdfDocumentViewer document={activeBinaryDocument} printRequest={binaryPrintRequest} />
+              </Suspense>
+            ) : activeBinaryFormat === 'html' ? (
               <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора HTML…</div>}>
-                <HtmlDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} />
+                <HtmlDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} printRequest={binaryPrintRequest} downloadRequest={binaryDownloadRequest} />
               </Suspense>
             ) : (
               <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}>
-                <OfficeDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} />
+                <OfficeDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} printRequest={binaryPrintRequest} downloadRequest={binaryDownloadRequest} />
               </Suspense>
             )}
           </> : activeNote ? <>
@@ -458,6 +479,13 @@ export function App() {
                 <span className={`save-indicator ${saveState}`} title={storageError ?? saveLabel}>
                   {saveState === 'saving' ? <LoaderCircle size={14} /> : saveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}{saveLabel}
                 </span>
+                <DocumentActions
+                  onDownload={() => downloadDocument(new Blob([activeNote.content], { type: 'text/markdown;charset=utf-8' }), `${activeNote.title || 'Без назви'}.md`)}
+                  onPrint={() => {
+                    void printMarkdownDocument(activeNote.content, activeNote.title || 'Без назви')
+                      .catch(error => setStorageError(error instanceof Error ? error.message : 'Не вдалося надрукувати нотатку.'));
+                  }}
+                />
                 {!remoteAllowed && <span className="local-only-indicator" title="Віддалені Git-операції для цього репозиторію вимкнені"><LockKeyhole size={13} />Локально</span>}
                 <button className="icon-button delete-note-button" aria-label="Видалити нотатку" title="Видалити нотатку" onClick={() => void deleteActiveNote()}><Trash2 size={16} /></button>
                 <button className="attachment-button" disabled title="Вкладення будуть додані окремим модулем"><Paperclip size={16} />Вкладені файли</button>

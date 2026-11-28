@@ -22,6 +22,8 @@ GitNotes aims to combine a OneNote Online-style workspace for organizing notes a
 - Selecting a tab does not activate remote access for its repository; remote operations require explicit repository activation.
 - No GitHub authentication or remote repository operations are enabled yet.
 - Browser-local DOCX, XLSX and PPTX viewing/editing through the office-engine source vendored directly in this repository; HTML has a dedicated adapter over the same local engine.
+- Read-only PDF viewing through the browser's native PDF renderer.
+- Shared Download and Print actions for Markdown and imported documents, delegated to each format's own rendering/print mechanism.
 - The office engine is built from local TypeScript source. GitNote does not depend on the upstream npm package or fetch the engine from GitHub at build time or runtime.
 
 ## Vendored Office engine

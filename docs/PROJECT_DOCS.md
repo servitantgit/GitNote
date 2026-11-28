@@ -134,7 +134,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - [ ] Interactive task-list checkboxes that update Markdown source.
 - [ ] [[ suggestions.
 - [ ] Insert URL on selected text.
-- [ ] Print support.
+- [x] Markdown print support through a sanitized, format-specific browser print document.
 - [ ] Search/replace UX and explicit heading folding behavior as needed.
 
 ### Stage 2: file management and navigation
@@ -157,8 +157,9 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 The goal is format-appropriate experiences within one workspace, not a single Markdown editor with file previews bolted on.
 
 - [ ] Shared document-opening contract and format capability model (view, edit, import, export, print), without assuming every format supports every operation.
+- [x] Shared workspace Download and Print actions for Markdown and imported binary documents; each format delegates printing to its own renderer.
 - [x] Separate Blob-preserving IndexedDB storage for binary workspace documents, including atomic VFS registration, path updates and recursive deletion.
-- [ ] PDF viewer and defined PDF interaction scope.
+- [x] Read-only PDF viewer using the browser's native PDF renderer; system print and original-file download only.
 - [x] DOCX viewer and editing strategy: browser-local editing through the locally vendored office-engine source.
 - [x] XLSX viewer and editing strategy: browser-local editing through the locally vendored office-engine source.
 - [x] PPTX viewing/editing scope: browser-local editing through the locally vendored office-engine source.
@@ -183,7 +184,7 @@ Only after editor and local workspace foundations are ready:
 
 - The visible UI is still a flat notes list, not the VFS tree.
 - The initial document import/open workflow currently lists binary documents separately from Markdown notes; the full navigable VFS tree and shared multi-format tab model are not implemented.
-- Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF viewing is not implemented.
+- Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF is read-only and relies on browser-native PDF support.
 - Local VFS operations exist as a storage/domain service; they are not yet exposed as normal user-facing file manager workflows.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
 - Attachments are metadata-only at this stage.

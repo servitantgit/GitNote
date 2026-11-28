@@ -3,6 +3,8 @@
 All notable changes to GitNotes are documented here.
 
 ## [Unreleased]
+- Add a read-only PDF viewer using the browser's native PDF renderer, with original-file download and system printing.
+- Add shared workspace Download and Print actions for Markdown and imported documents; Markdown uses a sanitized print rendering, while Office/HTML delegates to the vendored engine's existing print controller.
 - Vendor the `office-engine` v0.18.0 runtime source required by GitNotes in `src/vendor/office-engine` and remove the external npm package dependency; GitNotes imports and builds its own copy. Document the selective, manually reviewed upstream update policy.
 - Add Java and Python syntax highlighting for Markdown fenced code blocks in Source, Live and rendered Preview, using the same CM6/Lezer parsers; no IDE features are included.
 - Add an HTML-specific bidirectional scroll adapter between the source pane and rendered document pane, isolated from Markdown navigation synchronization.
@@ -10,7 +12,7 @@ All notable changes to GitNotes are documented here.
 - Add Chromium regression coverage for scrolling HTML source and rendered panes in both directions.
 
 ### Added
-- Add local import, listing, opening and deletion for DOCX, XLSX, PPTX, Markdown, HTML and SVG, with browser-local editing and Blob saves through `@p10node/office-engine`.
+- Add local import, listing, opening and deletion for DOCX, XLSX, PPTX, Markdown, HTML, SVG and PDF, with browser-local editing and Blob saves through the locally vendored office-engine source.
 - Add Chromium coverage for importing a document, verifying its Blob-backed VFS record and reopening it after reload.
 - Add DOCX and XLSX Chromium roundtrip tests for real editor changes, explicit save callbacks and reopening the edited files after reload.
 - Add PPTX Chromium roundtrip coverage for editing slide text, saving the presentation and reopening the edited file after reload.

@@ -1001,3 +1001,34 @@ test('stores binary workspace documents as Blobs and updates their VFS lifecycle
     removed: true, remainingNodes: 0,
   });
 });
+
+
+test('imports PDF into the dedicated read-only viewer and downloads the original file', async ({ page }) => {
+  const pdf = Buffer.from([
+    '%PDF-1.4',
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R >> endobj',
+    '4 0 obj << /Length 44 >> stream',
+    'BT /F1 18 Tf 20 80 Td (GitNotes PDF) Tj ET',
+    'endstream endobj',
+    'trailer << /Root 1 0 R >>',
+    '%%EOF',
+  ].join('\n'));
+
+  await page.locator('input[aria-label="Файл для імпорту"]').setInputFiles({
+    name: 'sample.pdf',
+    mimeType: 'application/pdf',
+    buffer: pdf,
+  });
+
+  await expect(page.getByTestId('pdf-document-viewer')).toBeVisible();
+  await expect(page.locator('.pdf-document-frame')).toHaveAttribute('src', /^blob:/);
+  await expect(page.getByRole('button', { name: 'Завантажити файл' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Друкувати файл' })).toBeEnabled();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Завантажити файл' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('sample.pdf');
+});
