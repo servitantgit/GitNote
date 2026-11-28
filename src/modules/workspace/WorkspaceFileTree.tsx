@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { ChevronDown, ChevronRight, File, FileImage, FileText, Folder, FolderOpen } from 'lucide-react';
 import type { WorkspaceFileNode } from '../../core/domain/workspace-file-system';
 
@@ -31,7 +32,7 @@ export function WorkspaceFileTree({ nodes, selectedPath, onSelectFolder, onOpenF
     return groups;
   }, [nodes]);
 
-  const renderLevel = (parentPath: string, depth: number): React.ReactNode =>
+  const renderLevel = (parentPath: string, depth: number): ReactNode =>
     (childrenByParent.get(parentPath) ?? []).map(node => {
       if (node.kind === 'folder') {
         const isExpanded = expanded.has(node.path);
@@ -76,6 +77,9 @@ export function WorkspaceFileTree({ nodes, selectedPath, onSelectFolder, onOpenF
     });
 
   return <div className="workspace-file-tree" role="tree" aria-label="Файли та папки" data-testid="workspace-file-tree">
+    <button className={`file-tree-row root-row${selectedPath === '' ? ' selected' : ''}`} onClick={() => onSelectFolder('')} title="Коренева папка">
+      <FolderOpen size={15} /><span>Робочий простір</span>
+    </button>
     {renderLevel('', 0)}
     {nodes.length === 0 && <div className="file-tree-empty">Папка порожня</div>}
   </div>;
