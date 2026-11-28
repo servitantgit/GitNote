@@ -203,6 +203,29 @@ test.beforeEach(async ({ page }) => {
   }, { message: 'The local workspace should initialize before editor tests run' }).toBe('ready');
 });
 
+test('creates a folder and places a new note inside the selected folder', async ({ page }) => {
+  page.once('dialog', dialog => dialog.accept('Projects'));
+  await page.getByRole('button', { name: 'Створити папку' }).click();
+  const tree = page.getByTestId('workspace-file-tree');
+  await expect(tree.getByRole('button', { name: 'Projects' })).toBeVisible();
+  await tree.getByRole('button', { name: 'Projects' }).click();
+  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+
+  await expect.poll(async () => page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return new Promise<boolean>((resolve, reject) => {
+      const request = db.transaction('fileNodes', 'readonly').objectStore('fileNodes').getAll();
+      request.onsuccess = () => resolve(request.result.some((node: { path: string; kind: string }) => node.kind === 'file' && node.path.startsWith('Projects/')));
+      request.onerror = () => reject(request.error);
+    });
+  })).toBe(true);
+  await expect(tree.getByRole('button', { name: /\.md$/ })).toBeVisible();
+});
+
 test('imports a local document, opens it and restores its Blob after reload', async ({ page }) => {
   const chooserPromise = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Імпортувати документ' }).click();
