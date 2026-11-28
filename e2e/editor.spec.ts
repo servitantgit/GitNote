@@ -1167,6 +1167,8 @@ test('keeps multiple format viewers mounted and restores HTML editor state when 
 
 test('searches all local Markdown notes, including notes whose tabs are closed', async ({ page }) => {
   await createNoteFromMenu(page);
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Без назви');
   await page.getByLabel('Назва нотатки').fill('Closed search note');
   await page.locator('.cm-content').fill('A unique phrase in a closed local note.');
   await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
