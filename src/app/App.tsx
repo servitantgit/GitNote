@@ -27,13 +27,24 @@ async function listWorkspaceTree(parentPath = ''): Promise<WorkspaceFileNode[]> 
   return [...children, ...nested.flat()];
 }
 
+async function ensureWorkspaceFolder(name: string): Promise<void> {
+  const nodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
+  if (nodes.some(node => node.kind === 'folder' && node.name === name)) return;
+  try {
+    await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, '', name);
+  } catch (error) {
+    const refreshed = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
+    if (!refreshed.some(node => node.kind === 'folder' && node.name === name)) throw error;
+  }
+}
+
 const OfficeDocumentViewer = lazy(() => import('../modules/documents/OfficeDocumentViewer').then(module => ({ default: module.OfficeDocumentViewer })));
 const HtmlDocumentViewer = lazy(() => import('../modules/documents/html/HtmlDocumentViewer').then(module => ({ default: module.HtmlDocumentViewer })));
 const PdfDocumentViewer = lazy(() => import('../modules/documents/PdfDocumentViewer').then(module => ({ default: module.PdfDocumentViewer })));
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
-function makeNote(title = 'Без назви', content = '', parentPath = ''): DocumentRecord {
+function makeNote(title = 'Без назви', content = '', parentPath = 'Notes'): DocumentRecord {
   const now = Date.now();
   const id = crypto.randomUUID();
   return { id, repositoryId: LOCAL_REPOSITORY_ID, title, content, path: parentPath ? `${parentPath}/${id}.md` : `${id}.md`, syncState: 'local', createdAt: now, updatedAt: now };
@@ -109,6 +120,7 @@ export function App() {
     let cancelled = false;
     async function loadWorkspace() {
       try {
+        await Promise.all(['Notes', 'Documents'].map(ensureWorkspaceFolder));
         const [documentMetas, savedWorkspace, binaryMetas] = await Promise.all([
           documentSource.list(),
           workspaceStore.get(),
@@ -224,7 +236,7 @@ export function App() {
 
   const createNote = useCallback(async () => {
     if (saveState === 'loading') return;
-    const note = makeNote('Без назви', '', selectedFolderPath);
+    const note = makeNote('Без назви', '', selectedFolderPath || 'Notes');
     try {
       await workspaceFileSystem.createDocument(note, note.path!);
       setNotes(current => [note, ...current]);
@@ -281,7 +293,8 @@ export function App() {
         throw new Error('Підтримуються формати DOCX, XLSX, PPTX, MD, HTML, SVG та PDF.');
       }
       const now = Date.now();
-      const path = selectedFolderPath ? `${selectedFolderPath}/${name}` : name;
+      const targetFolder = selectedFolderPath || 'Documents';
+      const path = `${targetFolder}/${name}`;
       const document: BinaryDocumentRecord = {
         id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title: name, path,
         content: file, mediaType: file.type || 'application/octet-stream', size: file.size,
@@ -458,7 +471,7 @@ export function App() {
               </div>;
             })}
           </div>
-          {activeBinaryDocument && activeBinaryUi && <div className="document-header"><div className="document-title-wrap"><div className="breadcrumb">Документи <span>/</span> Локальний робочий простір</div><div className="document-title-text">{activeBinaryDocument.title}</div></div><div className="document-actions">
+          {activeBinaryDocument && activeBinaryUi && <div className="document-header binary-document-header" aria-label="Дії з документом"><div className="document-actions">
             <span className={`save-indicator ${activeBinaryUi.saveState}`} title={storageError ?? undefined}>{activeBinaryUi.saveState === 'saving' ? <LoaderCircle size={14} /> : activeBinaryUi.saveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}{activeBinaryUi.saveState === 'saving' ? 'Збереження…' : activeBinaryUi.saveState === 'error' ? 'Помилка збереження' : activeBinaryUi.dirty ? 'Є незбережені зміни' : 'Збережено локально'}</span>
             <DocumentActions onDownload={() => { if (activeBinaryFormat === 'pdf' || activeBinaryFormat === 'image') downloadDocument(activeBinaryDocument.content, activeBinaryDocument.title); else setBinaryUiState(current => { const state = current[activeBinaryDocument.id] ?? activeBinaryUi; return { ...current, [activeBinaryDocument.id]: { ...state, downloadRequest: state.downloadRequest + 1 } }; }); }} onPrint={() => setBinaryUiState(current => { const state = current[activeBinaryDocument.id] ?? activeBinaryUi; return { ...current, [activeBinaryDocument.id]: { ...state, printRequest: state.printRequest + 1 } }; })} />
             <button className="icon-button delete-note-button" aria-label="Видалити документ" title="Видалити документ" onClick={() => void deleteActiveBinaryDocument()}><Trash2 size={16} /></button>
