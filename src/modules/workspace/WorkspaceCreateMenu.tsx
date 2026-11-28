@@ -17,8 +17,8 @@ export function WorkspaceCreateMenu({ onCreateNote, onCreateOffice, disabled = f
       <summary className="icon-button" aria-label="Створити" title="Створити нотатку або Office-документ" aria-haspopup="menu">
         <Plus size={16} />
       </summary>
-      <div className="create-menu-popover" role="menu" aria-label="Створити документ">
-        <button type="button" role="menuitem" disabled={disabled} onClick={event => { closeMenu(event); onCreateNote(); }}>
+      <div className="create-menu-popover" role="group" aria-label="Створити документ">
+        <button type="button" disabled={disabled} onClick={event => { closeMenu(event); onCreateNote(); }}>
           <FileText size={16} color="#4385D1" />Створити нотатку
         </button>
         <button type="button" role="menuitem" disabled={disabled} onClick={event => { closeMenu(event); onCreateOffice('docx'); }}>
