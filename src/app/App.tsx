@@ -19,6 +19,8 @@ import { printMarkdownDocument } from '../modules/documents/markdown-print';
 import { WorkspaceManager, workspaceTabDocumentId, workspaceTabDocumentType, type WorkspaceSnapshot } from '../core/domain/workspace';
 import './app.css';
 
+const SearchDialog = lazy(() => import('../modules/search/SearchDialog').then(module => ({ default: module.SearchDialog })));
+
 const LOCAL_REPOSITORY_ID = 'local-workspace';
 const LOCAL_REPOSITORY = { id: LOCAL_REPOSITORY_ID, owner: 'local', name: 'Локальний робочий простір', defaultBranch: 'main' };
 const INITIAL_CONTENT = '# Моя перша нотатка\n\nGitNotes — робочий простір для нотаток і документів із Git-контролем версій.\n\n- Source: редагування Markdown\n- Live: Source і Preview поруч із синхронізованою прокруткою\n- Preview: режим читання';
@@ -70,6 +72,7 @@ export function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('loading');
   const [storageError, setStorageError] = useState<string | null>(null);
   const managerRef = useRef<WorkspaceManager | null>(null);
@@ -463,7 +466,7 @@ export function App() {
         <div className="brand-mark">G</div><strong className="brand-name">GitNotes</strong>
         <div className="repo-indicator"><GitBranch size={15} /><span>{activeRepository?.name ?? 'Репозиторій не активний'}</span></div>
         <div className="top-actions">
-          <button className="icon-button" aria-label="Пошук нотаток" title="Пошук нотаток (ще не реалізовано)" disabled><Search size={18} /></button>
+          <button className="icon-button" aria-label="Пошук у робочому просторі" title="Пошук по всіх локальних нотатках і документах" onClick={() => setSearchOpen(true)} disabled={saveState === 'loading'}><Search size={18} /></button>
           <button className="icon-button" aria-label="Налаштування" title="Налаштування (ще не реалізовано)" disabled><Settings size={18} /></button>
         </div>
       </header>
@@ -535,6 +538,15 @@ export function App() {
           </div>
         </section>
       </div>
+      {searchOpen && <Suspense fallback={<div className="workspace-search-loading" role="status">Завантаження пошуку…</div>}><SearchDialog notes={notes} onClose={() => setSearchOpen(false)} onOpenResult={result => {
+        setSearchOpen(false);
+        if (result.documentType === 'note') {
+          const note = notes.find(item => item.id === result.documentId);
+          if (note) openNote(note);
+        } else {
+          void openBinaryDocument(result.documentId);
+        }
+      }} /></Suspense>}
     </main>
   );
 }

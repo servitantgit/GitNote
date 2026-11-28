@@ -233,7 +233,7 @@ test('closes the last tab without deleting the note and keeps the workspace tabl
     });
   }, title);
 
-  await page.getByRole('button', { name: 'Закрити вкладку' }).click();
+  await page.locator('.document-tab.active .tab-close').click();
   await expect(tabs).toHaveCount(0);
   await expect(page.locator('.workspace-document-panel')).toHaveCount(0);
   expect(await readStoredWelcomeNote()).toBe(true);
@@ -1162,4 +1162,59 @@ test('keeps multiple format viewers mounted and restores HTML editor state when 
   await expect(page.getByTestId('html-document-viewer')).toBeVisible();
   await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(savedScrollTop * 0.8);
   await expect(page.getByTestId('office-document-viewer')).toBeHidden();
+});
+
+
+test('searches all local Markdown notes, including notes whose tabs are closed', async ({ page }) => {
+  await createNoteFromMenu(page);
+  await page.getByLabel('Назва нотатки').fill('Closed search note');
+  await page.locator('.cm-content').fill('A unique phrase in a closed local note.');
+  await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
+
+  await page.getByRole('button', { name: 'Закрити вкладку' }).click();
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('unique phrase');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+
+  const result = page.locator('.workspace-search-results button');
+  await expect(result).toContainText('Closed search note');
+  await expect(result).toContainText('unique phrase');
+  await result.click();
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Closed search note');
+});
+
+test('searches text in imported DOCX documents', async ({ page }) => {
+  await importOfficeFile(page, 'Search.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', makeDocxFixture());
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Original Word text');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('Search.docx');
+});
+
+test('searches cell values across imported XLSX worksheets', async ({ page }) => {
+  await importOfficeFile(page, 'Search.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', makeXlsxFixture());
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Original Excel text');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('Search.xlsx');
+});
+
+test('searches slide text in imported PPTX presentations', async ({ page }) => {
+  await importOfficeFile(page, 'Search.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', makePptxFixture());
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Original PPTX text');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('Search.pptx');
+});
+
+test('searches text in imported HTML without executing its scripts', async ({ page }) => {
+  await importOfficeFile(page, 'Search.html', 'text/html', Buffer.from('<html><body><p>Visible HTML search phrase</p><script>window.htmlSearchExecuted = true</script></body></html>'));
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Visible HTML search phrase');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('Search.html');
+  expect(await page.evaluate(() => (window as Window & { htmlSearchExecuted?: boolean }).htmlSearchExecuted)).toBeUndefined();
 });

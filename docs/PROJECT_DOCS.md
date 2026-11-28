@@ -55,7 +55,8 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Debounced local autosave through IndexedDB/Dexie.
 - Local-only status is shown; GitHub authentication and remote repository selection are not implemented.
 - Startup safely handles the React StrictMode double invocation: if another initialization pass creates the `Notes` folder first, the second pass confirms the folder exists and continues.
-- Search, settings and attachment controls are placeholders/disabled.
+- The top-bar Search control opens a global on-demand search across every local Markdown note, including closed notes, plus saved DOCX, XLSX, PPTX, HTML and SVG documents. Office extraction reuses the vendored engine's parsers; HTML/SVG are read locally without executing page scripts. Search does not maintain a persistent index. PDF is not indexed because the current native browser viewer does not expose its text to the application. Unsaved Office edits are not included; current in-memory Markdown edits are.
+- Settings and attachment controls remain placeholders/disabled.
 - The sidebar renders one recursive VFS tree for notes and binary files. File icons are format-specific and color-coded consistently with the Create menu. The Create menu uses an explicitly controlled, keyboard-dismissable popover with accessible menu-item actions; it creates Markdown notes and blank DOCX, XLSX and PPTX files in the selected folder, or the legacy `Notes/` / `Documents/` defaults when no folder is selected. Imported supported files go to the selected folder, or `Documents/` by default. Closing the last open tab leaves the workspace with no active document; this empty tab state is persisted and restored after reload, without deleting the underlying file.
 
 ### Markdown editor
@@ -141,7 +142,8 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 - [x] Initial visible file/folder tree backed by the repository VFS; folder selection, folder creation, note creation and supported-file import work within the selected folder. Rename/move controls and broader format handlers remain planned.
 - [ ] Rename/move with Markdown-link rewriting.
-- [ ] Search index (MiniSearch or equivalent).
+- [x] On-demand global content search across local Markdown notes, DOCX, XLSX, PPTX, HTML and SVG files.
+- [ ] Persistent search index (MiniSearch or equivalent).
 - [ ] Backlinks.
 - [ ] Hide only GitNotes-owned marker files; keep user dotfiles visible.
 
@@ -186,7 +188,7 @@ Only after editor and local workspace foundations are ready:
 - The sidebar now renders one recursive VFS tree for notes and binary files; the separate Notes and Documents lists have been removed. Users can select a folder, create a child folder, create a Markdown note or blank DOCX/XLSX/PPTX document in that folder, and import currently supported file formats into it. File-type icons are color-coded consistently in the tree and Create menu. Existing `Notes/` and `Documents/` paths remain intact and visible as ordinary folders.
 - File-tree rename/move controls, drag-and-drop, recursive delete from the tree, and a general format-handler/opening contract are not implemented yet. Existing VFS rename/move/delete operations remain available at the storage layer.
 - Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF is read-only and relies on browser-native PDF support.
-- The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
+- The VFS does not yet rewrite Markdown links or maintain backlinks. Global search currently scans local content on demand rather than maintaining a persistent index. PDF content is not indexed; the native browser PDF viewer does not expose its text layer to the application.
 - Attachments are metadata-only at this stage.
 - No remote GitHub repository manager, OAuth, GitHub API integration, commits, pushes or remote conflict UI exists.
 - Do not claim roadmap items are implemented until source, tests and user-visible UI confirm them.

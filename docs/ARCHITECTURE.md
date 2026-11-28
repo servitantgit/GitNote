@@ -16,6 +16,7 @@
 - `src/modules/documents/PdfDocumentViewer.tsx`: read-only PDF viewer using a Blob URL and the browser's native PDF renderer; print is delegated to the embedded PDF viewer.
 - `src/modules/documents/DocumentActions.tsx` and `document-download.ts`: shared workspace Download/Print controls and original-Blob download helper. The controls delegate printing to the active format adapter rather than implementing a universal print renderer.
 - `src/modules/documents/markdown-print.ts`: Markdown-specific sanitized HTML print adapter; it uses the existing Markdown renderer and DOMPurify.
+- `src/modules/search`: on-demand local workspace content search. Markdown notes are searched directly; DOCX, XLSX and PPTX text extraction reuses the vendored Office engine; HTML/SVG text is read locally without executing document scripts. Search is not persistently indexed. PDF is currently excluded because the native browser viewer does not expose document text to the host application.
 - `src/vendor/office-engine`: GitNote-owned copy of the required office-engine runtime source, pinned to upstream `v0.18.0` / `d7126505a00a431529d479c11d8d3372aeaf6cd0`. Vite compiles this source as part of GitNote; there is no package, Git or network dependency on upstream.
 - `src/modules/documents/html`: HTML-specific adapter, constrained host sizing, and proportional bidirectional scroll synchronization between the engine's source editor and rendered document surface. This mechanism is deliberately isolated from Markdown's logical-line scroll coordinator.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
@@ -85,7 +86,7 @@ Attachment metadata includes a path relative to the directory containing its par
 - `git-engine`: repository-scoped operation journal, tree construction, commit batching, conflict detection and GitHub transport.
 - `attachments`: note-scoped attachment lifecycle and format-handler registry.
 - `documents`: shared document-opening contract, format detection/capabilities and format-specific adapters. Markdown, Office (DOCX/XLSX/PPTX), PDF and HTML require appropriate independent viewers/editors; do not route every format through the Markdown editor.
-- `settings`, `help`, `search`: independent modules with versioned data/configuration.
+- `settings`, `help`: independent modules with versioned data/configuration. Persistent search indexing remains planned; the current search module scans local content on demand.
 
 These are planned boundaries, not claims that they are implemented.
 
