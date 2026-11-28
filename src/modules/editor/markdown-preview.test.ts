@@ -69,3 +69,40 @@ describe('rendered Markdown code highlighting', () => {
     expect(html).not.toContain('tok-keyword');
   });
 });
+
+
+describe('workspace image references', () => {
+  it('resolves relative and root-relative workspace images to temporary URLs', async () => {
+    const replacements: Array<[string, string]> = [];
+    const originalCreate = URL.createObjectURL;
+    URL.createObjectURL = (() => 'blob:workspace-image-test') as typeof URL.createObjectURL;
+    try {
+      const html = await renderMarkdown(
+        '![relative](../Images/photo.png) ![root](/Shared/diagram.webp)',
+        undefined,
+        (placeholder, objectUrl) => replacements.push([placeholder, objectUrl]),
+        async target => {
+          expect(['../Images/photo.png', '/Shared/diagram.webp']).toContain(target);
+          return new Blob(['image-bytes'], { type: 'image/png' });
+        },
+      );
+      expect(html).toContain('https://gitnote.invalid/workspace-image/0');
+      expect(html).toContain('https://gitnote.invalid/workspace-image/1');
+      expect(replacements).toEqual([
+        ['https://gitnote.invalid/workspace-image/0', 'blob:workspace-image-test'],
+        ['https://gitnote.invalid/workspace-image/1', 'blob:workspace-image-test'],
+      ]);
+    } finally { URL.createObjectURL = originalCreate; }
+  });
+  it('leaves external images untouched and marks missing local images', async () => {
+    const html = await renderMarkdown(
+      '![external](https://example.com/photo.png) ![missing](../Images/missing.png)',
+      undefined,
+      () => undefined,
+      async () => null,
+    );
+    expect(html).toContain('src="https://example.com/photo.png"');
+    expect(html).toContain('Зображення не знайдено');
+    expect(html).not.toContain('gitnote.invalid/workspace-image');
+  });
+});

@@ -13,6 +13,7 @@ import { SettingsDialog } from '../modules/settings/SettingsDialog';
 import type { BinaryDocumentRecord, DocumentRecord } from '../core/domain/document-source';
 import { binaryDocumentSource, documentSource } from '../infrastructure/storage/local-document-source';
 import { workspaceFileSystem } from '../infrastructure/storage/local-workspace-file-system';
+import { resolveLocalWorkspaceImage } from '../infrastructure/storage/local-workspace-image-resolver';
 import { validateWorkspaceName, type WorkspaceFileNode } from '../core/domain/workspace-file-system';
 import { WorkspaceFileTree } from '../modules/workspace/WorkspaceFileTree';
 import { detectDocumentFormat } from '../core/domain/document-format';
@@ -51,6 +52,7 @@ async function ensureWorkspaceFolder(name: string): Promise<void> {
 const OfficeDocumentViewer = lazy(() => import('../modules/documents/OfficeDocumentViewer').then(module => ({ default: module.OfficeDocumentViewer })));
 const HtmlDocumentViewer = lazy(() => import('../modules/documents/html/HtmlDocumentViewer').then(module => ({ default: module.HtmlDocumentViewer })));
 const PdfDocumentViewer = lazy(() => import('../modules/documents/PdfDocumentViewer').then(module => ({ default: module.PdfDocumentViewer })));
+const ImageDocumentViewer = lazy(() => import('../modules/documents/ImageDocumentViewer').then(module => ({ default: module.ImageDocumentViewer })));
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
@@ -373,8 +375,8 @@ export function App() {
     try {
       const name = validateWorkspaceName(file.name);
       const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
-      if (!['.docx', '.xlsx', '.pptx', '.md', '.html', '.svg', '.pdf'].includes(extension)) {
-        throw new Error('Підтримуються формати DOCX, XLSX, PPTX, MD, HTML, SVG та PDF.');
+      if (!['.docx', '.xlsx', '.pptx', '.md', '.html', '.svg', '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.ico'].includes(extension)) {
+        throw new Error('Підтримуються формати DOCX, XLSX, PPTX, MD, HTML, SVG, PDF та поширені формати зображень.');
       }
       const now = Date.now();
       const targetFolder = selectedFolderPath || 'Documents';
@@ -493,6 +495,11 @@ export function App() {
     return attachment.content;
   }, []);
 
+  const resolveWorkspaceImage = useCallback(
+    (notePath: string, target: string) => resolveLocalWorkspaceImage(LOCAL_REPOSITORY_ID, notePath, target),
+    [],
+  );
+
   const handleEditorContentChange = useCallback((content: string) => {
     const noteId = activeNoteIdRef.current;
     if (!noteId) return;
@@ -541,7 +548,7 @@ export function App() {
               <button className="icon-button" aria-label="Імпортувати документ" title="Імпортувати файл в обрану папку" onClick={() => fileInputRef.current?.click()} disabled={saveState === 'loading'}><Upload size={16} /></button>
             </div>
           </div>
-          <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.md,.html,.svg,.pdf" aria-label="Файл для імпорту"
+          <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.md,.html,.svg,.pdf,.png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,.ico" aria-label="Файл для імпорту"
             onChange={event => {
               const file = event.target.files?.[0];
               event.target.value = '';
@@ -588,7 +595,8 @@ export function App() {
               const dirty = (value: boolean) => setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? ui), dirty: value } }));
               const error = (value: Error) => setStorageError(value.message);
               return <div key={tab.id} className="workspace-document-panel" style={{ display: active ? 'flex' : 'none' }} aria-hidden={!active}>
-                {format === 'pdf' ? <Suspense fallback={<div className="office-viewer-loading">Завантаження переглядача PDF…</div>}><PdfDocumentViewer document={document} printRequest={ui.printRequest} /></Suspense>
+                {format === 'image' ? <Suspense fallback={<div className="office-viewer-loading">Завантаження переглядача зображень…</div>}><ImageDocumentViewer document={document} /></Suspense>
+                  : format === 'pdf' ? <Suspense fallback={<div className="office-viewer-loading">Завантаження переглядача PDF…</div>}><PdfDocumentViewer document={document} printRequest={ui.printRequest} /></Suspense>
                   : format === 'html' ? <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора HTML…</div>}><HtmlDocumentViewer document={document} onSave={save} onDirtyChange={dirty} onError={error} printRequest={ui.printRequest} downloadRequest={ui.downloadRequest} /></Suspense>
                     : <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}><OfficeDocumentViewer document={document} onSave={save} onDirtyChange={dirty} onError={error} printRequest={ui.printRequest} downloadRequest={ui.downloadRequest} /></Suspense>}
               </div>;
@@ -597,7 +605,7 @@ export function App() {
                 lineWrapping={preferences.lineWrapping} lineNumbersEnabled={preferences.lineNumbers}
                 fontSize={preferences.editorFontSize} outlineOpenByDefault={preferences.outlineOpenByDefault}
                 minimapOpenByDefault={preferences.minimapOpenByDefault}
-                content={activeNote.content} onContentChange={handleEditorContentChange} onAddImage={addImageToNote} resolveAttachment={resolveNoteAttachment} searchNavigation={searchNavigation?.documentId === activeNote.id ? searchNavigation : undefined} /></div>}
+                content={activeNote.content} onContentChange={handleEditorContentChange} onAddImage={addImageToNote} resolveAttachment={resolveNoteAttachment} notePath={activeNote.path ?? ''} resolveWorkspaceImage={resolveWorkspaceImage} searchNavigation={searchNavigation?.documentId === activeNote.id ? searchNavigation : undefined} /></div>}
             {!activeNote && !activeBinaryDocument && <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
           </div>
         </section>

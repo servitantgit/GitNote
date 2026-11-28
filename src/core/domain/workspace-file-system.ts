@@ -50,3 +50,25 @@ export function workspacePathName(path: string): string {
   const normalized = normalizeWorkspacePath(path);
   return normalized.slice(normalized.lastIndexOf('/') + 1);
 }
+
+/** Resolve a Markdown image target against the directory containing its note. */
+export function resolveWorkspaceAssetPath(documentPath: string, target: string): string | null {
+  let value = String(target ?? '').trim();
+  if (!value || value.startsWith('#') || value.startsWith('//') || /^[a-z][a-z\d+.-]*:/i.test(value)) return null;
+  const suffix = value.search(/[?#]/u);
+  if (suffix >= 0) value = value.slice(0, suffix);
+  try { value = decodeURIComponent(value); } catch { return null; }
+  if (!value || value.includes('\0')) return null;
+  const segments = value.startsWith('/') ? [] : parentWorkspacePath(documentPath).split('/').filter(Boolean);
+  for (const segment of value.replace(/\\/g, '/').split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (!segments.length) return null;
+      segments.pop();
+    } else {
+      if (segment.includes('\0')) return null;
+      segments.push(segment);
+    }
+  }
+  return segments.join('/') || null;
+}

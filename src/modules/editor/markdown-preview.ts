@@ -41,33 +41,58 @@ export async function renderMarkdown(
   content: string,
   resolveAttachment?: (id: string) => Promise<Blob>,
   onAttachmentUrl?: (placeholder: string, objectUrl: string) => void,
+  resolveWorkspaceImage?: (target: string) => Promise<Blob | null>,
 ): Promise<string> {
   const tokens = marked.lexer(content, { gfm: true });
   const pending = new Map<string, Promise<LanguageSupport>>();
   const attachmentTokens: Array<{ token: Tokens.Image; id: string }> = [];
+  const workspaceImageTokens: Array<{ token: Tokens.Image; target: string }> = [];
   const attachmentResolver = resolveAttachment;
+  const workspaceImageResolver = resolveWorkspaceImage;
   const registerAttachmentUrl = onAttachmentUrl;
 
-  if (attachmentResolver && registerAttachmentUrl) {
+  if (registerAttachmentUrl) {
     marked.walkTokens(tokens, token => {
       if (token.type !== 'image') return;
       const imageToken = token as Tokens.Image;
-      const match = /^attachment:([a-f0-9-]{36})$/i.exec(imageToken.href);
-      if (match) attachmentTokens.push({ token: imageToken, id: match[1] });
+      const attachmentMatch = /^attachment:([a-f0-9-]{36})$/i.exec(imageToken.href);
+      if (attachmentMatch && attachmentResolver) {
+        attachmentTokens.push({ token: imageToken, id: attachmentMatch[1] });
+        return;
+      }
+      const target = imageToken.href.trim();
+      const isLocalPath = Boolean(target) && !target.startsWith('#') &&
+        !target.startsWith('//') && !/^[a-z][a-z\\d+.-]*:/i.test(target);
+      if (isLocalPath && workspaceImageResolver) workspaceImageTokens.push({ token: imageToken, target });
     });
 
-    await Promise.all(attachmentTokens.map(async ({ token, id }, index) => {
-      try {
-        const blob = await attachmentResolver(id);
-        const objectUrl = URL.createObjectURL(blob);
-        const placeholder = `https://gitnote.invalid/attachment/${index}`;
-        token.href = placeholder;
-        registerAttachmentUrl(placeholder, objectUrl);
-      } catch {
-        token.href = '';
-        token.text = token.text || 'Вкладення не знайдено';
-      }
-    }));
+    await Promise.all([
+      ...attachmentTokens.map(async ({ token, id }, index) => {
+        try {
+          const blob = await attachmentResolver!(id);
+          const objectUrl = URL.createObjectURL(blob);
+          const placeholder = `https://gitnote.invalid/attachment/${index}`;
+          token.href = placeholder;
+          registerAttachmentUrl(placeholder, objectUrl);
+        } catch {
+          token.href = '';
+          token.text = token.text || 'Вкладення не знайдено';
+        }
+      }),
+      ...workspaceImageTokens.map(async ({ token, target }, index) => {
+        try {
+          const blob = await workspaceImageResolver!(target);
+          if (!blob) throw new Error('Workspace image not found');
+          const objectUrl = URL.createObjectURL(blob);
+          const placeholder = `https://gitnote.invalid/workspace-image/${index}`;
+          token.href = placeholder;
+          registerAttachmentUrl(placeholder, objectUrl);
+        } catch {
+          token.href = '';
+          token.text = token.text || 'Зображення не знайдено';
+        }
+      }),
+    ]);
   }
 
   marked.walkTokens(tokens, token => {

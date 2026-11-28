@@ -38,6 +38,8 @@ interface Props {
   onContentChange: (value: string) => void;
   onAddImage: (noteId: string, file: File) => Promise<string>;
   resolveAttachment: (noteId: string, attachmentId: string) => Promise<Blob>;
+  notePath: string;
+  resolveWorkspaceImage: (notePath: string, target: string) => Promise<Blob | null>;
   searchNavigation?: { id: number; documentId: string; ranges: SearchMatchRange[] };
   lineWrapping: boolean; lineNumbersEnabled: boolean; fontSize: number;
   outlineOpenByDefault: boolean; minimapOpenByDefault: boolean;
@@ -89,6 +91,8 @@ export function EditorWorkspace({
   onContentChange,
   onAddImage,
   resolveAttachment,
+  notePath,
+  resolveWorkspaceImage,
   searchNavigation, lineWrapping, lineNumbersEnabled, fontSize, outlineOpenByDefault, minimapOpenByDefault,
 }: Props) {
   const editorRef = useRef<EditorView | null>(null);
@@ -188,7 +192,7 @@ export function EditorWorkspace({
       }
       objectUrls.add(objectUrl);
       placeholders.set(placeholder, objectUrl);
-    }).then(html => {
+    }, target => resolveWorkspaceImage(notePath, target)).then(html => {
       if (!active) return;
       let safeHtml = DOMPurify.sanitize(html);
       for (const [placeholder, objectUrl] of placeholders) safeHtml = safeHtml.replaceAll(placeholder, objectUrl);
@@ -198,7 +202,7 @@ export function EditorWorkspace({
       active = false;
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [content, mode, documentId, resolveAttachment]);
+  }, [content, mode, documentId, notePath, resolveAttachment, resolveWorkspaceImage]);
   const previewReady = rendered?.content === content;
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;

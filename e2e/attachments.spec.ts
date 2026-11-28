@@ -99,3 +99,48 @@ test('pastes and drops image files into the active Markdown note', async ({ page
   await expect(source).toContainText('![clipboard.png](attachment:');
   await expect(source).toContainText('![dropped.png](attachment:');
 });
+
+
+test('imports shared-folder images and resolves relative Markdown references without copying them to note attachments', async ({ page }) => {
+  page.once('dialog', dialog => dialog.accept('Images'));
+  await page.getByRole('button', { name: 'Створити папку' }).click();
+  const imagesFolder = page.locator('.file-tree-row.folder-row').filter({ hasText: 'Images' });
+  await expect(imagesFolder).toBeVisible();
+  await imagesFolder.click();
+
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=', 'base64');
+  await page.getByLabel('Файл для імпорту').setInputFiles({ name: 'shared-photo.png', mimeType: 'image/png', buffer: png });
+  await expect(page.locator('.image-document-viewer img')).toBeVisible();
+
+  const notesFolder = page.locator('.file-tree-row.folder-row').filter({ hasText: 'Notes' });
+  await notesFolder.click();
+  const createTrigger = page.locator('.create-menu > button[aria-label="Створити"]');
+  await createTrigger.click();
+  await page.getByRole('menuitem', { name: 'Створити нотатку' }).click();
+  const source = page.locator('.cm-content');
+  await expect(source).toBeVisible();
+  await source.fill('![shared photo](../Images/shared-photo.png)');
+  await page.getByRole('tab', { name: 'Preview' }).click();
+  const image = page.locator('.markdown-preview img');
+  await expect(image).toBeVisible();
+  await expect(image).toHaveAttribute('src', /^blob:/);
+
+  const storageCounts = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const counts = await new Promise<{ binaries: number; attachments: number }>((resolve, reject) => {
+      const transaction = db.transaction(['binaryDocuments', 'noteAttachments'], 'readonly');
+      const binaryRequest = transaction.objectStore('binaryDocuments').count();
+      const attachmentRequest = transaction.objectStore('noteAttachments').count();
+      transaction.oncomplete = () => resolve({ binaries: binaryRequest.result, attachments: attachmentRequest.result });
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+    return counts;
+  });
+  expect(storageCounts.binaries).toBe(1);
+  expect(storageCounts.attachments).toBe(0);
+});
