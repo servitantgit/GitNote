@@ -59,7 +59,7 @@ describe('WorkspaceManager', () => {
       activeRepositoryId: repoB.id,
       activeTabId: tabB.id,
     });
-    expect(workspace.getSnapshot().tabs).toEqual([{ ...tabA, documentType: 'note', documentId: 'note-a' }]);
+    expect(workspace.getSnapshot().tabs).toEqual([tabA]);
     expect(workspace.getSnapshot().activeRepositoryId).toBeNull();
     expect(workspace.getSnapshot().activeTabId).toBe(tabA.id);
   });
@@ -91,9 +91,12 @@ describe('format-neutral document tabs', () => {
     expect(workspaceTabDocumentId(workspace.getSnapshot().tabs[1])).toBe('doc-1');
     expect(workspace.getSnapshot().activeTabId).toBe(binaryTab.id);
   });
-  it('normalizes legacy note-only snapshots', () => {
+  it('reads legacy note-only snapshots without rewriting their stored shape', () => {
     const workspace = new WorkspaceManager({ repositories: [repoA], tabs: [tabA], activeRepositoryId: repoA.id, activeTabId: tabA.id });
-    expect(workspace.getSnapshot().tabs[0]).toMatchObject({ documentType: 'note', documentId: 'note-a', noteId: 'note-a' });
+    const restored = workspace.getSnapshot().tabs[0];
+    expect(workspaceTabDocumentType(restored)).toBe('note');
+    expect(workspaceTabDocumentId(restored)).toBe('note-a');
+    expect(restored).toEqual(tabA);
   });
   it('rejects reusing a tab ID for a different document type', () => {
     const workspace = new WorkspaceManager(); workspace.registerRepository(repoA); workspace.openTab(tabA);

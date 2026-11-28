@@ -47,7 +47,7 @@ export class WorkspaceManager {
   constructor(snapshot?: WorkspaceSnapshot) {
     if (!snapshot) return;
     this.repositories = new Map(snapshot.repositories.map(repository => [repository.id, repository]));
-    this.tabs = snapshot.tabs.map(tab => ({ ...tab, documentType: workspaceTabDocumentType(tab), documentId: workspaceTabDocumentId(tab) }));
+    this.tabs = [...snapshot.tabs];
     this.activeRepositoryId = snapshot.activeRepositoryId;
     this.activeTabId = snapshot.activeTabId;
     this.normalize();

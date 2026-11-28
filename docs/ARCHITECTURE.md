@@ -71,7 +71,7 @@ Every feature change must include regression coverage appropriate to its behavio
 
 ## Per-tab document lifecycle
 
-`WorkspaceTab` identifies a document by `documentType` (`note` or `binary`) and `documentId`; `noteId` remains readable for older persisted snapshots and is normalized by `WorkspaceManager`. `WorkspaceManager` owns the shared ordered tab collection and active-tab selection. The app retains one binary record and UI/action state per open binary document. Format-specific viewers are keyed by tab and stay mounted in hidden panels while inactive, preserving their editor/controller/iframe state. Closing a tab releases only its in-memory viewer state; it does not delete the underlying document. Closing a binary tab with unsaved edits requires confirmation. Reload restores persisted tab identities and reloads their binary Blob records from IndexedDB.
+`WorkspaceTab` identifies a document by `documentType` (`note` or `binary`) and `documentId`; `noteId` remains readable for older persisted snapshots; helper functions resolve its document type and identity without rewriting existing records. `WorkspaceManager` owns the shared ordered tab collection and active-tab selection. The app retains one binary record and UI/action state per open binary document. Format-specific viewers are keyed by tab and stay mounted in hidden panels while inactive, preserving their editor/controller/iframe state. Closing a tab releases only its in-memory viewer state; it does not delete the underlying document. Closing a binary tab with unsaved edits requires confirmation. Reload restores persisted tab identities and reloads their binary Blob records from IndexedDB.
 
 ## Local persistence and compatibility
 

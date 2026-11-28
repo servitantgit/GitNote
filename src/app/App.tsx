@@ -442,7 +442,7 @@ export function App() {
               const title = note?.title || binary?.title || tab.title || 'Без назви'; const inactive = tab.repositoryId !== activeRepositoryId;
               return <div className={`document-tab${tab.id === workspace.activeTabId ? ' active' : ''}${inactive ? ' inactive' : ''}`} key={tab.id}>
                 <button role="tab" aria-selected={tab.id === workspace.activeTabId} onClick={() => { managerRef.current?.selectTab(tab.id); if (managerRef.current) persistWorkspace(managerRef.current); }} title={inactive ? 'Репозиторій не активний. Локальне редагування доступне.' : title}>{inactive && <LockKeyhole size={12} />}<span>{title}</span>{binaryUiState[documentId]?.dirty && <span aria-label="Є незбережені зміни">•</span>}</button>
-                <button className="tab-close" aria-label={`Закрити ${title}`} onClick={() => closeTab(tab.id)}><X size={13} /></button>
+                <button className="tab-close" aria-label="Закрити вкладку" title={`Закрити ${title}`} onClick={() => closeTab(tab.id)}><X size={13} /></button>
               </div>;
             })}
           </div>
