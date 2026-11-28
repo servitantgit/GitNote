@@ -66,7 +66,7 @@ Every feature change must include regression coverage appropriate to its behavio
 - Remote read/sync/commit/push operations are permitted only for the explicitly active repository.
 - Every tab carries its repository ID and branch; callers must use that context for document operations.
 - Removing a repository does not silently activate another repository.
-- Closing a tab does not delete its note. Deleting a note removes it from local note storage and closes its corresponding tab.
+- Closing a tab does not delete its document. Closing the final tab leaves `activeTabId` null and persists an empty tab list; startup preserves that intentional empty state. Deleting a note removes it from local note storage and closes its corresponding tab.
 - The sidebar uses `src/modules/workspace/WorkspaceFileTree.tsx` to render one recursive tree from repository VFS nodes. `WorkspaceFileIcon` maps file extensions to the same colored Lucide icons used by `WorkspaceCreateMenu`. Notes and binary files are siblings in the same hierarchy; format determines the open handler, not folder grouping. The selected folder is the target for new folders, Markdown notes, blank Office documents and supported-file imports. Existing `Notes/` and `Documents/` directories are retained as ordinary legacy folders. Rename/move UI and drag-and-drop remain unimplemented.
 - Notes and binary documents use one format-neutral tab strip. Each open binary tab retains its mounted format viewer; Markdown retains per-document CodeMirror EditorState in the editor module. GitHub repository registration and loading notes from remote repositories remain future work.
 
