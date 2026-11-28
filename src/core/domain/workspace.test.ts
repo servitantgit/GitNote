@@ -59,7 +59,7 @@ describe('WorkspaceManager', () => {
       activeRepositoryId: repoB.id,
       activeTabId: tabB.id,
     });
-    expect(workspace.getSnapshot().tabs).toEqual([tabA]);
+    expect(workspace.getSnapshot().tabs).toEqual([{ ...tabA, documentType: 'note', documentId: 'note-a' }]);
     expect(workspace.getSnapshot().activeRepositoryId).toBeNull();
     expect(workspace.getSnapshot().activeTabId).toBe(tabA.id);
   });
