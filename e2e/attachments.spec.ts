@@ -90,6 +90,9 @@ test('pastes and drops image files into the active Markdown note', async ({ page
 
     const dropped = new DataTransfer();
     dropped.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'dropped.png', { type: 'image/png' }));
+    const dragOver = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dropped });
+    element.dispatchEvent(dragOver);
+    expect(dragOver.defaultPrevented).toBe(true);
     element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dropped, clientX: 10, clientY: 10 }));
   });
   await expect(source).toContainText('![clipboard.png](attachment:');

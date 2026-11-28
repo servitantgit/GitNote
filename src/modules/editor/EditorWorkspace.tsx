@@ -274,6 +274,9 @@ export function EditorWorkspace({
       event.stopPropagation();
       void insertImages(pastedFiles);
     };
+    const onDragOver = (event: DragEvent) => {
+      if (Array.from(event.dataTransfer?.types ?? []).includes('Files')) event.preventDefault();
+    };
     const onDrop = (event: DragEvent) => {
       const droppedFiles = Array.from(event.dataTransfer?.files ?? []).filter(file => file.type.startsWith('image/'));
       if (!droppedFiles.length) return;
@@ -284,9 +287,11 @@ export function EditorWorkspace({
       void insertImages(droppedFiles);
     };
     view.dom.addEventListener('paste', onPaste, true);
+    view.dom.addEventListener('dragover', onDragOver, true);
     view.dom.addEventListener('drop', onDrop, true);
     return () => {
       view.dom.removeEventListener('paste', onPaste, true);
+      view.dom.removeEventListener('dragover', onDragOver, true);
       view.dom.removeEventListener('drop', onDrop, true);
     };
   }, [documentId, mode, onAddImage, editorView]);
