@@ -83,7 +83,7 @@ test('inserts note-owned images from the toolbar and renders them after reload',
 test('pastes and drops image files into the active Markdown note', async ({ page }) => {
   await page.getByRole('tab', { name: 'Source' }).click();
   const source = page.locator('.cm-content');
-  await source.evaluate(element => {
+  const dragOverPrevented = await source.evaluate(element => {
     const clipboard = new DataTransfer();
     clipboard.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'clipboard.png', { type: 'image/png' }));
     element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: clipboard }));
@@ -92,9 +92,10 @@ test('pastes and drops image files into the active Markdown note', async ({ page
     dropped.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'dropped.png', { type: 'image/png' }));
     const dragOver = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dropped });
     element.dispatchEvent(dragOver);
-    expect(dragOver.defaultPrevented).toBe(true);
     element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dropped, clientX: 10, clientY: 10 }));
+    return dragOver.defaultPrevented;
   });
+  expect(dragOverPrevented).toBe(true);
   await expect(source).toContainText('![clipboard.png](attachment:');
   await expect(source).toContainText('![dropped.png](attachment:');
 });
