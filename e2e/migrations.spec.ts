@@ -203,7 +203,7 @@ test('upgrades a version 6 database by adding the search index without changing 
   await page.goto('/');
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Version six note');
   const stored = await readDatabase(page);
-  expect(stored.nativeVersion).toBe(70);
+  expect(stored.nativeVersion).toBe(80);
   expect(stored.notes).toContainEqual(expect.objectContaining({
     id: noteId,
     content: 'Existing Markdown content must survive',
@@ -251,7 +251,7 @@ test('upgrades a version 1 database without losing existing drafts', async ({ pa
   await page.goto('/');
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
   const stored = await readDatabase(page);
-  expect(stored.nativeVersion).toBe(70);
+  expect(stored.nativeVersion).toBe(80);
   expect(stored.drafts).toContainEqual(expect.objectContaining({
     id: 'legacy-draft-v1',
     content: 'Draft from schema version 1',
