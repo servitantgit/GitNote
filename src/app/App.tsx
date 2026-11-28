@@ -156,7 +156,7 @@ export function App() {
         }
         const current = manager.getSnapshot();
         const activeExists = current.tabs.some(tab => tab.id === current.activeTabId);
-        if (!activeExists && nextNotes[0]) manager.openTab(tabForNote(nextNotes[0]));
+        if (!activeExists && !savedWorkspace && nextNotes[0]) manager.openTab(tabForNote(nextNotes[0]));
         const openedBinary = await Promise.all(current.tabs.filter(tab => workspaceTabDocumentType(tab) === 'binary')
           .map(tab => binaryDocumentSource.read(workspaceTabDocumentId(tab))));
         managerRef.current = manager;
@@ -394,12 +394,8 @@ export function App() {
       setBinaryUiState(current => { const next = { ...current }; delete next[documentId]; return next; });
     }
     manager.closeTab(tabId);
-    if (!manager.getSnapshot().activeTabId) {
-      const fallback = notes.find(note => `note:${note.id}` !== tabId);
-      if (fallback) manager.openTab(tabForNote(fallback));
-    }
     persistWorkspace(manager);
-  }, [binaryUiState, notes, persistWorkspace]);
+  }, [binaryUiState, persistWorkspace]);
 
   const deleteActiveNote = useCallback(async () => {
     if (!activeNote) return;
