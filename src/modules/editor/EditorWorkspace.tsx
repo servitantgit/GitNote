@@ -7,6 +7,8 @@ import { Prec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { EditorView } from '@codemirror/view';
 import type { EditorState } from '@codemirror/state';
+import type { SearchMatchRange } from '../search/search-query';
+import { searchHighlightExtension, setSearchHighlights } from './search-highlight';
 import DOMPurify from 'dompurify';
 import {
   Bold, Italic, Strikethrough, Code2, Link2, Heading1, Heading2,
@@ -34,6 +36,7 @@ interface Props {
   onModeChange: (mode: EditorMode) => void;
   content: string;
   onContentChange: (value: string) => void;
+  searchNavigation?: { id: number; documentId: string; ranges: SearchMatchRange[] };
 }
 
 interface ScrollDebugHook {
@@ -80,8 +83,11 @@ export function EditorWorkspace({
   onModeChange,
   content,
   onContentChange,
+  searchNavigation,
 }: Props) {
   const editorRef = useRef<EditorView | null>(null);
+  const editorDocumentIdRef = useRef<string | null>(null);
+  const lastAppliedSearchIdRef = useRef<number | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -129,7 +135,25 @@ export function EditorWorkspace({
     };
   };
 
-  const extensions = useMemo(() => [markdown({ codeLanguages }), markdownKeymap, EditorView.lineWrapping], []);
+  const extensions = useMemo(() => [markdown({ codeLanguages }), markdownKeymap, EditorView.lineWrapping, searchHighlightExtension], []);
+
+  useEffect(() => {
+    if (!searchNavigation || searchNavigation.documentId !== documentId || !editorView ||
+        editorDocumentIdRef.current !== documentId || lastAppliedSearchIdRef.current === searchNavigation.id) return;
+
+    const ranges = searchNavigation.ranges.filter(range =>
+      range.from >= 0 && range.to > range.from && range.to <= editorView.state.doc.length);
+    lastAppliedSearchIdRef.current = searchNavigation.id;
+    if (!ranges.length) return;
+
+    const first = ranges[0];
+    editorView.dispatch({
+      effects: setSearchHighlights.of({ ranges, activeIndex: 0 }),
+      selection: { anchor: first.from, head: first.to },
+      scrollIntoView: true,
+    });
+    editorView.focus();
+  }, [documentId, editorView, searchNavigation?.id]);
   useEffect(() => {
     if (mode !== 'preview' && mode !== 'live') {
       setRendered(null);
@@ -282,6 +306,7 @@ export function EditorWorkspace({
             editorStates.set(documentId, update.state);
           }}
           onCreateEditor={view => {
+            editorDocumentIdRef.current = documentId;
             editorRef.current = view;
             setEditorView(view);
             const savedState = editorStates.get(documentId);

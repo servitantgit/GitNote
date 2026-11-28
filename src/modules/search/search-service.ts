@@ -3,7 +3,7 @@ import { detectDocumentFormat, type DocumentFormatId } from '../../core/domain/d
 import { binaryDocumentSource } from '../../infrastructure/storage/local-document-source';
 import { database, type LocalSearchDocument } from '../../infrastructure/storage/database';
 import { createSearchGrams, hasCurrentSearchGrams } from './search-index';
-import { findSimilarTextMatches } from './search-query';
+import { findSimilarTextMatches, type SearchMatchRange } from './search-query';
 import { DocumentClient } from '../../vendor/office-engine';
 import type { Block } from '../../vendor/office-engine/src/core/docx/types';
 import { docxToText, slidesToText } from '../../vendor/office-engine/src/react/file/text';
@@ -16,6 +16,7 @@ export interface WorkspaceSearchResult {
   format: DocumentFormatId;
   matchCount: number;
   matchKind: 'exact' | 'similar';
+  matchRanges: SearchMatchRange[];
   snippet: string;
 }
 
@@ -32,7 +33,7 @@ export interface WorkspaceSearchProgress {
   currentTitle: string;
 }
 
-export function findTextMatches(text: string, query: string): { count: number; snippet: string } | null {
+export function findTextMatches(text: string, query: string): { count: number; snippet: string; ranges: SearchMatchRange[] } | null {
   const needle = query.trim().toLocaleLowerCase();
   if (!needle) return null;
   const normalized = text.toLocaleLowerCase();
@@ -41,10 +42,12 @@ export function findTextMatches(text: string, query: string): { count: number; s
 
   let count = 0;
   let cursor = 0;
+  const ranges: SearchMatchRange[] = [];
   while (cursor < normalized.length) {
     const index = normalized.indexOf(needle, cursor);
     if (index < 0) break;
     count += 1;
+    if (ranges.length < 500) ranges.push({ from: index, to: index + needle.length });
     cursor = index + needle.length;
   }
 
@@ -53,7 +56,7 @@ export function findTextMatches(text: string, query: string): { count: number; s
   const prefix = start > 0 ? '…' : '';
   const suffix = end < text.length ? '…' : '';
   const snippet = prefix + text.slice(start, end).replace(/\s+/g, ' ').trim() + suffix;
-  return { count, snippet };
+  return { count, snippet, ranges };
 }
 
 async function loadXlsxSheet(client: DocumentClient, sheet: number): Promise<void> {
@@ -264,6 +267,7 @@ export async function searchWorkspaceDocuments(
       format: document.format as DocumentFormatId,
       matchCount: match.count,
       matchKind: 'exact',
+      matchRanges: match.ranges,
       snippet: match.snippet,
     });
   }
@@ -292,6 +296,7 @@ export async function searchWorkspaceDocuments(
           format: document.format as DocumentFormatId,
           matchCount: match.count,
           matchKind: 'similar',
+          matchRanges: match.ranges,
           snippet: match.snippet,
         });
       }

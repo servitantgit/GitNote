@@ -1170,7 +1170,7 @@ test('searches all local Markdown notes, including notes whose tabs are closed',
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Без назви');
   await page.getByLabel('Назва нотатки').fill('Closed search note');
-  await page.locator('.cm-content').fill('A unique phrase in a closed local note.');
+  await page.locator('.cm-content').fill('A unique phrase in a closed local note. Another unique phrase here.');
   await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
 
   await page.locator('.document-tab.active .tab-close').click();
@@ -1194,6 +1194,8 @@ test('searches all local Markdown notes, including notes whose tabs are closed',
   await expect(persistedResult).toContainText('unique phrase');
   await persistedResult.click();
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Closed search note');
+  await expect(page.locator('.cm-search-match-current')).toHaveCount(1);
+  await expect(page.locator('.cm-search-match')).toHaveCount(1);
 });
 
 test('refreshes a Markdown search entry when content changes without a timestamp change', async ({ page }) => {
@@ -1256,6 +1258,10 @@ test('finds a note by word prefixes and a small typo when exact search has no re
   await expect(result).toHaveCount(1);
   await expect(result.first()).toContainText('Fuzzy search note');
   await expect(result.first()).toContainText('Схожий збіг');
+  await result.first().click();
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Fuzzy search note');
+  await expect(page.locator('.cm-search-match-current')).toHaveCount(1);
+  await expect(page.locator('.cm-search-match')).toHaveCount(2);
 });
 
 test('searches text in imported DOCX documents', async ({ page }) => {

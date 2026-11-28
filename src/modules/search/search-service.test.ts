@@ -6,6 +6,7 @@ describe('findTextMatches', () => {
     expect(findTextMatches('First phrase, then PHRASE again.', 'phrase')).toEqual({
       count: 2,
       snippet: 'First phrase, then PHRASE again.',
+      ranges: [{ from: 6, to: 12 }, { from: 19, to: 25 }],
     });
   });
 

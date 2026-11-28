@@ -6,6 +6,7 @@ import { WorkspaceCreateMenu } from '../modules/workspace/WorkspaceCreateMenu';
 import { createOfficeDocumentBlob, type OfficeDocumentKind } from '../modules/documents/create-office-document';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
+import type { SearchMatchRange } from '../modules/search/search-query';
 import { workspaceStore } from '../infrastructure/storage/database';
 import type { BinaryDocumentRecord, DocumentRecord } from '../core/domain/document-source';
 import { binaryDocumentSource, documentSource } from '../infrastructure/storage/local-document-source';
@@ -73,6 +74,8 @@ export function App() {
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchNavigation, setSearchNavigation] = useState<{ id: number; documentId: string; ranges: SearchMatchRange[] } | null>(null);
+  const searchNavigationSequenceRef = useRef(0);
   const [saveState, setSaveState] = useState<SaveState>('loading');
   const [storageError, setStorageError] = useState<string | null>(null);
   const managerRef = useRef<WorkspaceManager | null>(null);
@@ -533,7 +536,7 @@ export function App() {
                     : <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}><OfficeDocumentViewer document={document} onSave={save} onDirtyChange={dirty} onError={error} printRequest={ui.printRequest} downloadRequest={ui.downloadRequest} /></Suspense>}
               </div>;
             })}
-            {activeNote && <div className="workspace-document-panel"><EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} /></div>}
+            {activeNote && <div className="workspace-document-panel"><EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} searchNavigation={searchNavigation?.documentId === activeNote.id ? searchNavigation : undefined} /></div>}
             {!activeNote && !activeBinaryDocument && <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
           </div>
         </section>
@@ -542,7 +545,15 @@ export function App() {
         setSearchOpen(false);
         if (result.documentType === 'note') {
           const note = notes.find(item => item.id === result.documentId);
-          if (note) openNote(note);
+          if (note) {
+            openNote(note);
+            setMode(current => current === 'preview' ? 'source' : current);
+            setSearchNavigation({
+              id: ++searchNavigationSequenceRef.current,
+              documentId: note.id,
+              ranges: result.matchRanges,
+            });
+          }
         } else {
           void openBinaryDocument(result.documentId);
         }

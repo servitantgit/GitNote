@@ -1,6 +1,12 @@
+export interface SearchMatchRange {
+  from: number;
+  to: number;
+}
+
 interface TextMatch {
   count: number;
   snippet: string;
+  ranges: SearchMatchRange[];
 }
 
 interface SearchToken {
@@ -83,11 +89,12 @@ export function findSimilarTextMatches(text: string, query: string): TextMatch |
     matches.push(documentTokens[bestIndex]);
   }
 
-  const first = matches.reduce((earliest, current) => current.index < earliest.index ? current : earliest);
+  matches.sort((a, b) => a.index - b.index);
+  const first = matches[0];
   const start = Math.max(0, first.index - 72);
   const end = Math.min(text.length, first.end + 96);
   const prefix = start > 0 ? '…' : '';
   const suffix = end < text.length ? '…' : '';
   const snippet = prefix + text.slice(start, end).replace(/\s+/g, ' ').trim() + suffix;
-  return { count: 1, snippet };
+  return { count: 1, snippet, ranges: matches.map(match => ({ from: match.index, to: match.end })) };
 }

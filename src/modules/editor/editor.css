@@ -46,3 +46,6 @@
 .markdown-preview pre code .tok-variableName,.markdown-preview pre code .tok-propertyName,.markdown-preview pre code .tok-definition{color:#61afef}
 .markdown-preview pre code .tok-operator,.markdown-preview pre code .tok-punctuation{color:var(--text)}
 .markdown-preview pre code .tok-invalid{color:#e06c75;text-decoration:underline wavy}
+
+.source-editor .cm-search-match{background:color-mix(in srgb,var(--accent) 22%,transparent);border-radius:2px}
+.source-editor .cm-search-match-current{background:color-mix(in srgb,var(--accent) 42%,transparent);outline:1px solid color-mix(in srgb,var(--accent) 72%,transparent);border-radius:2px}

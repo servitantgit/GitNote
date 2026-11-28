@@ -11,6 +11,11 @@ describe('findSimilarTextMatches', () => {
     expect(result).not.toBeNull();
     expect(result?.snippet).toContain('Planning');
     expect(result?.count).toBe(1);
+    expect(result?.ranges).toEqual([
+      { from: 0, to: 8 },
+      { from: 27, to: 33 },
+      { from: 34, to: 40 },
+    ]);
   });
 
   it('requires every query token to match a distinct document token', () => {
