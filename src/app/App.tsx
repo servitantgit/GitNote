@@ -114,7 +114,7 @@ export function App() {
     if (!manager) return;
     manager.openTab(tabForNote(note));
     persistWorkspace(manager);
-  }, [persistWorkspace, refreshFileNodes, selectedFolderPath]);
+  }, [persistWorkspace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -300,7 +300,7 @@ export function App() {
         syncState: 'local', createdAt: now, updatedAt: now,
       };
       await workspaceFileSystem.createBinaryDocument(document, path);
-      const [metas, stored] = await Promise.all([binaryDocumentSource.list(), binaryDocumentSource.read(document.id)]);
+      const stored = await binaryDocumentSource.read(document.id);
       await refreshFileNodes();
       setBinaryDocumentRecords(current => ({ ...current, [document.id]: stored }));
       const manager = managerRef.current;
@@ -310,7 +310,7 @@ export function App() {
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося імпортувати документ.');
     }
-  }, [persistWorkspace]);
+  }, [persistWorkspace, refreshFileNodes, selectedFolderPath]);
 
   const saveBinaryDocument = useCallback(async (documentId: string, content: Blob) => {
     setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 }), saveState: 'saving' } }));
