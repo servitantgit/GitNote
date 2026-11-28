@@ -38,7 +38,7 @@ export function SettingsDialog({ preferences, onChange, onClose }: Props) {
             <h3 id="settings-appearance">Оформлення</h3>
             <label className="settings-field"><span>Тема інтерфейсу</span>
               <select aria-label="Тема інтерфейсу" value={preferences.theme} onChange={event => update('theme', event.target.value as AppPreferences['theme'])}>
-                <option value="system">Як у системі</option><option value="light">Світла</option><option value="dark">Темна</option>
+                <option value="system">Як у системі</option><option value="light">Світла</option><option value="dark">Темна</option><option value="black">Black (OLED)</option>
               </select>
             </label>
             <label className="settings-field"><span>Щільність інтерфейсу</span>

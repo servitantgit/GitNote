@@ -41,6 +41,25 @@ test('persists appearance and editor preferences across reload', async ({ page }
   await expect(page.locator('.cm-editor')).toHaveCSS('background-color', 'rgb(32, 38, 48)');
 });
 
+
+test('persists the Black OLED theme and applies it to Markdown surfaces', async ({ page }) => {
+  await page.getByRole('button', { name: 'Налаштування' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Налаштування' });
+  await dialog.getByLabel('Тема інтерфейсу').selectOption('black');
+
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'black');
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(9, 11, 14)');
+  await expect(page.locator('.cm-editor')).toHaveCSS('background-color', 'rgb(9, 11, 14)');
+  await expect(page.locator('.markdown-preview')).toHaveCSS('background-color', 'rgb(9, 11, 14)');
+
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'black');
+  await expect(page.locator('.cm-editor')).toHaveCSS('background-color', 'rgb(9, 11, 14)');
+  await expect(page.locator('.markdown-preview')).toHaveCSS('background-color', 'rgb(9, 11, 14)');
+});
+
 test('persists editor layout toggles and does not restore tabs when disabled', async ({ page }) => {
   await page.getByRole('button', { name: 'Налаштування' }).click();
   const dialog = page.getByRole('dialog', { name: 'Налаштування' });

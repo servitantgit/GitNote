@@ -1,6 +1,6 @@
 import type { EditorMode } from '../editor/types';
 
-export type AppTheme = 'system' | 'light' | 'dark';
+export type AppTheme = 'system' | 'light' | 'dark' | 'black';
 export type UiDensity = 'comfortable' | 'compact';
 
 export interface AppPreferences {

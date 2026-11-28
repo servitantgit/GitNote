@@ -110,3 +110,5 @@ Updates are selective and manual. Review upstream changes against GitNote's actu
 - Preferences are stored in the separate Dexie `settings` table through `settingsStore`; schema version 8 adds this table without rewriting existing workspace or document data.
 - The application shell applies theme and workspace density. Markdown-specific defaults are passed into `EditorWorkspace`; CodeMirror 6 `Compartment` instances reconfigure line wrapping and line-number gutters without replacing the per-tab editor state.
 - Workspace preferences control whether saved tabs are restored at startup and whether the sidebar open/closed state is remembered. These settings do not delete stored documents.
+
+- Application appearance supports system, light, dark and Black (OLED) themes. The app shell resolves system preference to light/dark; Black (OLED) uses a true-black surface and separate near-black panels. Markdown Source, Live Preview and shared workspace surfaces consume the same CSS tokens.

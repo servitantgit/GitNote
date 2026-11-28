@@ -1,4 +1,5 @@
 :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#20242b;background:#f7f8fa;font-synthesis:none;text-rendering:optimizeLegibility;--surface:#f7f8fa;--panel:#fff;--text:#20242b;--muted:#747d89;--border:#e5e8ed;--hover:#f1f3f6;--selected:#edf1f6;--accent:#315f9b}
 :root[data-theme="dark"]{color-scheme:dark;--surface:#171b22;--panel:#202630;--text:#e7ebf1;--muted:#9aa5b4;--border:#343e4c;--hover:#2a3441;--selected:#303f52;--accent:#79a9e8;background:var(--surface);color:var(--text)}
+:root[data-theme="black"]{color-scheme:dark;--surface:#000;--panel:#090b0e;--text:#f1f3f5;--muted:#9aa0a8;--border:#252a31;--hover:#15191f;--selected:#1c2530;--accent:#8ab4f8;background:var(--surface);color:var(--text)}
 :root[data-theme="light"]{color-scheme:light}
 body{background:var(--surface);color:var(--text)}*{box-sizing:border-box}html,body,#root{height:100%;margin:0}button{font:inherit}button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}::selection{background:#c9dcf5}

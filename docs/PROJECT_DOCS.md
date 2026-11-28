@@ -219,7 +219,7 @@ Only after editor and local workspace foundations are ready:
 The Settings dialog is implemented in `src/modules/settings`. Preferences are stored independently in the `settings` Dexie table under the existing `gitnote-local` database (schema version 8); the upgrade is additive and leaves notes, binary documents, file nodes, search index and workspace snapshots intact.
 
 Implemented preferences:
-- Appearance: system/light/dark theme and comfortable/compact workspace density.
+- Appearance: system/light/dark/Black (OLED) theme and comfortable/compact workspace density. Black (OLED) uses a true-black workspace background with slightly lighter panels; system mode continues to follow the OS light/dark preference.
 - Markdown editor: default Source/Live/Preview mode, editor font size, line wrapping, line numbers, and default visibility of Outline and minimap. CodeMirror 6 compartments reconfigure line wrapping and line-number gutters without replacing the editor state.
 - Workspace: restore open tabs on startup and remember the sidebar open/closed state.
 

@@ -108,8 +108,10 @@ export function App() {
     const root = document.documentElement;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const applyTheme = () => {
-      const dark = preferences.theme === 'dark' || (preferences.theme === 'system' && media.matches);
-      root.dataset.theme = dark ? 'dark' : 'light';
+      const theme = preferences.theme === 'system'
+        ? (media.matches ? 'dark' : 'light')
+        : preferences.theme;
+      root.dataset.theme = theme;
     };
     applyTheme();
     if (preferences.theme !== 'system') return;
