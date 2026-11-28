@@ -150,7 +150,7 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
 
   async remove(repositoryId: string, path: string): Promise<void> {
     const normalized = normalizeWorkspacePath(path);
-    await database.transaction('rw', database.fileNodes, database.notes, database.binaryDocuments, async () => {
+    await database.transaction('rw', database.fileNodes, database.notes, database.binaryDocuments, database.noteAttachments, async () => {
       const nodes = await database.fileNodes.where('repositoryId').equals(repositoryId).toArray();
       const target = nodes.find(node => node.path === normalized);
       if (!target) return;
@@ -159,6 +159,10 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
       await database.fileNodes.bulkDelete(removed.map(node => node.id));
       await database.notes.bulkDelete(documentIds);
       await database.binaryDocuments.bulkDelete(documentIds);
+      if (documentIds.length) {
+        const attachmentIds = await database.noteAttachments.where('noteId').anyOf(documentIds).primaryKeys();
+        await database.noteAttachments.bulkDelete(attachmentIds);
+      }
     });
   }
 

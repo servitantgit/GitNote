@@ -45,11 +45,17 @@ export interface MutableDocumentSource extends DocumentSource {
 export interface DocumentAttachmentMeta {
   id: string;
   noteId: string;
+  /** Path relative to the parent note's directory. */
   path: string;
   mediaType: string;
   size: number;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface DocumentAttachmentRecord extends DocumentAttachmentMeta {
+  name: string;
+  content: Blob;
 }
 
 /** Binary documents are stored separately from editable text notes. */

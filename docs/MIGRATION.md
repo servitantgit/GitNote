@@ -19,7 +19,7 @@ GitNotes is a separate application. MD-Editor must remain unchanged and continue
 - Repository-scoped local VFS with folder/file nodes, safe relative paths, and atomic rename/move path updates in IndexedDB.
 - Existing notes migrated into the local `Notes` folder without changing their document IDs.
 - Document metadata includes repository-relative path, base blob SHA and explicit local/clean/dirty/conflict state. Existing records are migrated to `local`.
-- Attachment metadata defines paths relative to the parent note directory; attachment storage and UI remain future work.
+- Note-scoped attachments are stored as Blob records in `noteAttachments`, keyed by the parent note ID. The manager supports add/list/download/remove, and note/folder deletion cleans up owned files transactionally.
 - Global open document tabs with selection and closing.
 - Workspace snapshot persistence, including repository and branch context.
 - Explicit separation of active tab and active repository for remote capability checks.

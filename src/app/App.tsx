@@ -17,6 +17,7 @@ import { validateWorkspaceName, type WorkspaceFileNode } from '../core/domain/wo
 import { WorkspaceFileTree } from '../modules/workspace/WorkspaceFileTree';
 import { detectDocumentFormat } from '../core/domain/document-format';
 import { DocumentActions } from '../modules/documents/DocumentActions';
+import { NoteAttachmentsDialog } from '../modules/attachments/NoteAttachmentsDialog';
 import { downloadDocument } from '../modules/documents/document-download';
 import { printMarkdownDocument } from '../modules/documents/markdown-print';
 import { WorkspaceManager, workspaceTabDocumentId, workspaceTabDocumentType, type WorkspaceSnapshot } from '../core/domain/workspace';
@@ -69,6 +70,7 @@ export function App() {
   const [preferences, setPreferences] = useState<AppPreferences>(DEFAULT_PREFERENCES);
   const [mode, setMode] = useState<EditorMode>(DEFAULT_PREFERENCES.defaultMode);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [attachmentsNoteId, setAttachmentsNoteId] = useState<string | null>(null);
   const [notes, setNotes] = useState<DocumentRecord[]>([]);
   const [fileNodes, setFileNodes] = useState<WorkspaceFileNode[]>([]);
   const [selectedFolderPath, setSelectedFolderPath] = useState('');
@@ -555,7 +557,7 @@ export function App() {
           {activeNote && <div className="document-header"><div className="document-title-wrap"><div className="breadcrumb">Нотатки <span>/</span> {activeTabRepository?.name ?? 'Репозиторій'}</div><input className="document-title-input" aria-label="Назва нотатки" value={activeNote.title} onChange={event => updateActiveNote({ title: event.target.value })} placeholder="Без назви" /></div><div className="document-actions">
             <span className={`save-indicator ${saveState}`} title={storageError ?? saveLabel}>{saveState === 'saving' ? <LoaderCircle size={14} /> : saveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}{saveLabel}</span>
             <DocumentActions onDownload={() => downloadDocument(new Blob([activeNote.content], { type: 'text/markdown;charset=utf-8' }), `${activeNote.title || 'Без назви'}.md`)} onPrint={() => { void printMarkdownDocument(activeNote.content, activeNote.title || 'Без назви').catch(error => setStorageError(error instanceof Error ? error.message : 'Не вдалося надрукувати нотатку.')); }} />
-            {!remoteAllowed && <span className="local-only-indicator" title="Віддалені Git-операції для цього репозиторію вимкнені"><LockKeyhole size={13} />Локально</span>}<button className="icon-button delete-note-button" aria-label="Видалити нотатку" title="Видалити нотатку" onClick={() => void deleteActiveNote()}><Trash2 size={16} /></button><button className="attachment-button" disabled title="Вкладення будуть додані окремим модулем"><Paperclip size={16} />Вкладені файли</button>
+            {!remoteAllowed && <span className="local-only-indicator" title="Віддалені Git-операції для цього репозиторію вимкнені"><LockKeyhole size={13} />Локально</span>}<button className="icon-button delete-note-button" aria-label="Видалити нотатку" title="Видалити нотатку" onClick={() => void deleteActiveNote()}><Trash2 size={16} /></button><button className="attachment-button" type="button" title="Керувати вкладеними файлами нотатки" onClick={() => setAttachmentsNoteId(activeNote.id)}><Paperclip size={16} />Вкладені файли</button>
           </div></div>}
           <div className="workspace-document-stack">
             {workspace?.tabs.filter(tab => workspaceTabDocumentType(tab) === 'binary').map(tab => {
@@ -581,6 +583,7 @@ export function App() {
         </section>
       </div>
       {settingsOpen && <SettingsDialog preferences={preferences} onChange={updatePreferences} onClose={() => setSettingsOpen(false)} />}
+      {activeNote && attachmentsNoteId === activeNote.id && <NoteAttachmentsDialog key={activeNote.id} noteId={activeNote.id} noteTitle={activeNote.title} onClose={() => setAttachmentsNoteId(null)} />}
       {searchOpen && <Suspense fallback={<div className="workspace-search-loading" role="status">Завантаження пошуку…</div>}><SearchDialog notes={notes} onClose={() => setSearchOpen(false)} onOpenResult={result => {
         setSearchOpen(false);
         if (result.documentType === 'note') {

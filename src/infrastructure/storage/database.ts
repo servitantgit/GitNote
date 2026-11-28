@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { WorkspaceSnapshot } from '../../core/domain/workspace';
-import type { BinaryDocumentRecord, DocumentRecord } from '../../core/domain/document-source';
+import type { BinaryDocumentRecord, DocumentAttachmentRecord, DocumentRecord } from '../../core/domain/document-source';
 import { normalizeWorkspacePath, type WorkspaceFileNode } from '../../core/domain/workspace-file-system';
 import { DEFAULT_PREFERENCES, type AppPreferences } from '../../modules/settings/preferences';
 
@@ -43,6 +43,7 @@ class GitNotesDatabase extends Dexie {
   binaryDocuments!: EntityTable<BinaryDocumentRecord, 'id'>;
   searchDocuments!: EntityTable<LocalSearchDocument, 'id'>;
   settings!: EntityTable<StoredPreferences, 'id'>;
+  noteAttachments!: EntityTable<DocumentAttachmentRecord, 'id'>;
 
   constructor() {
     // Keep the existing database name so previously saved GitNote notes remain accessible.
@@ -159,6 +160,12 @@ class GitNotesDatabase extends Dexie {
       workspaces: 'id, updatedAt', fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
       binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState', searchDocuments: 'id, documentType, sourceUpdatedAt, *grams', settings: 'id',
     });
+    this.version(9).stores({
+      drafts: 'id, repositoryId, path, updatedAt', notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      workspaces: 'id, updatedAt', fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
+      binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState', searchDocuments: 'id, documentType, sourceUpdatedAt, *grams',
+      settings: 'id', noteAttachments: 'id, noteId, createdAt',
+    });
   }
 }
 
@@ -180,7 +187,13 @@ export const noteStore = {
   },
   async get(id: string): Promise<LocalNote | undefined> { return database.notes.get(id); },
   async save(note: LocalNote): Promise<void> { await database.notes.put(note); },
-  async remove(id: string): Promise<void> { await database.notes.delete(id); },
+  async remove(id: string): Promise<void> {
+    await database.transaction('rw', database.notes, database.noteAttachments, async () => {
+      await database.notes.delete(id);
+      const attachmentIds = await database.noteAttachments.where('noteId').equals(id).primaryKeys();
+      await database.noteAttachments.bulkDelete(attachmentIds);
+    });
+  },
 };
 
 /** Persists open tabs and repository workspace state locally. */

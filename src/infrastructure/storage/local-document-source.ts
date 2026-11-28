@@ -27,7 +27,11 @@ export class LocalIndexedDbDocumentSource implements MutableDocumentSource {
   }
 
   async remove(id: string): Promise<void> {
-    await database.notes.delete(id);
+    await database.transaction('rw', database.notes, database.noteAttachments, async () => {
+      await database.notes.delete(id);
+      const attachmentIds = await database.noteAttachments.where('noteId').equals(id).primaryKeys();
+      await database.noteAttachments.bulkDelete(attachmentIds);
+    });
   }
 
   async create(meta: DocumentMeta, content: string): Promise<void> {

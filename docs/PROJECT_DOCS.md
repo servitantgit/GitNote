@@ -56,7 +56,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Local-only status is shown; GitHub authentication and remote repository selection are not implemented.
 - Startup safely handles the React StrictMode double invocation: if another initialization pass creates the `Notes` folder first, the second pass confirms the folder exists and continues.
 - The top-bar Search control opens a global search across every local Markdown note, including closed notes, plus saved DOCX, XLSX, PPTX, HTML and SVG documents. Extracted text and unique bigrams/trigrams are persisted per document in the `searchDocuments` Dexie store; a multi-entry IndexedDB index narrows exact substring queries and supplies candidates for prefix/typo fallback matching. The index is populated lazily, refreshed when a source document's `updatedAt` changes, and stale entries are removed when source documents disappear. Current in-memory Markdown edits are reflected in the index; unsaved Office edits are not included. Office extraction reuses the vendored engine's parsers; HTML/SVG are read locally without executing page scripts. PDF is not indexed because the current native browser viewer does not expose its text to the application. Queries shorter than two characters use a full indexed-text scan. Selecting a Markdown note result opens the note at its first matched source range and highlights the available matches; fuzzy results highlight the matched source tokens. Office, HTML and other binary results open the document without in-document navigation.
-- Settings and attachment controls remain placeholders/disabled.
+- Settings and note-scoped attachment manager controls are active; attachment files are stored locally as Blobs in the `noteAttachments` table.
 - The sidebar renders one recursive VFS tree for notes and binary files. File icons are format-specific and color-coded consistently with the Create menu. The Create menu uses an explicitly controlled, keyboard-dismissable popover with accessible menu-item actions; it creates Markdown notes and blank DOCX, XLSX and PPTX files in the selected folder, or the legacy `Notes/` / `Documents/` defaults when no folder is selected. Imported supported files go to the selected folder, or `Documents/` by default. Closing the last open tab leaves the workspace with no active document; this empty tab state is persisted and restored after reload, without deleting the underlying file.
 
 ### Markdown editor
@@ -151,10 +151,10 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Stage 3: images and attachments
 
-- [ ] Note-scoped attachment manager and storage lifecycle.
+- [x] Note-scoped attachment manager with local Blob storage, add/list/download/remove actions and automatic cleanup when the parent note or containing folder is deleted.
 - [ ] Image insertion, drag/drop, resize and context menu.
 - [ ] External images and safe handling.
-- [ ] Deleting a note and its owned attachments as one logical operation, with safeguards for shared references.
+- [x] Deleting a note and its owned attachments as one IndexedDB transaction. Attachments are exclusively note-owned, so there are no shared-reference cases.
 
 ### Stage 4: multi-format document support
 
@@ -191,7 +191,7 @@ Only after editor and local workspace foundations are ready:
 - File-tree rename/move controls, drag-and-drop, recursive delete from the tree, and a general format-handler/opening contract are not implemented yet. Existing VFS rename/move/delete operations remain available at the storage layer.
 - Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF is read-only and relies on browser-native PDF support.
 - The VFS does not yet rewrite Markdown links or maintain backlinks. Global search persists extracted text and bigrams/trigrams in IndexedDB and checks source timestamps before reusing cached entries; Markdown content is also compared directly to avoid stale results if a timestamp is reused. Exact substring matches take priority; only when none exist does search try token prefixes and small spelling differences. Fuzzy matching requires every query word to match and is limited to short edit distances; it does not provide stemming or semantic search. Queries shorter than two characters scan all indexed text. PDF content is not indexed because the native browser PDF viewer does not expose its text layer to the application. In-document match navigation is currently limited to Markdown notes; Office, HTML and PDF results only open their respective document surfaces.
-- Attachments are metadata-only at this stage.
+- Attachments are stored as note-owned Blobs in `noteAttachments`. The manager supports adding, listing, downloading and removing files; deleting a note or a folder containing notes removes the owned attachments transactionally.
 - No remote GitHub repository manager, OAuth, GitHub API integration, commits, pushes or remote conflict UI exists.
 - Do not claim roadmap items are implemented until source, tests and user-visible UI confirm them.
 - CI run `45925386493` on commit `060a43a` passed unit tests and production build but reported 2 failed, 2 flaky and 6 passed Chromium tests. Trace review showed several browser tests began typing immediately after clicking the asynchronous Create Note action, before the new tab became active. Browser tests now wait for the new tab before editing. New note and VFS file creation are also one IndexedDB transaction. CI run `45925981117` on commit `a6f51de` passed all three required jobs (unit tests, Chromium browser tests and production build).
@@ -216,7 +216,7 @@ Only after editor and local workspace foundations are ready:
 
 ## Settings
 
-The Settings dialog is implemented in `src/modules/settings`. Preferences are stored independently in the `settings` Dexie table under the existing `gitnote-local` database (schema version 8); the upgrade is additive and leaves notes, binary documents, file nodes, search index and workspace snapshots intact.
+The Settings dialog is implemented in `src/modules/settings`. Preferences are stored independently in the `settings` Dexie table under the existing `gitnote-local` database (schema version 8); the upgrade is additive and leaves notes, binary documents, file nodes, search index and workspace snapshots intact. Schema version 9 adds the `noteAttachments` store for note-owned file Blobs.
 
 Implemented preferences:
 - Appearance: system/light/dark/Black (OLED) theme and comfortable/compact workspace density. Black (OLED) uses a true-black workspace background with slightly lighter panels; system mode continues to follow the OS light/dark preference.
