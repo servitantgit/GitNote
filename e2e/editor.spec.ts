@@ -257,8 +257,8 @@ test('imports a local document, opens it and restores its Blob after reload', as
 test('synchronizes HTML source and rendered document scrolling independently', async ({ page }) => {
   const paragraphs = Array.from({ length: 90 }, (_, index) =>
     '<p>HTML section ' + (index + 1) + ' with enough content to occupy space in the rendered document.</p>',
-  ).join('');
-  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Scroll test</title></head><body><h1>HTML scroll test</h1>' + paragraphs + '</body></html>';
+  ).join('\n');
+  const html = ['<!doctype html>', '<html>', '<head>', '<meta charset="utf-8">', '<title>Scroll test</title>', '</head>', '<body>', '<h1>HTML scroll test</h1>', paragraphs, '</body>', '</html>'].join('\n');
   await importOfficeFile(page, 'Scroll-test.html', 'text/html', Buffer.from(html));
   await expect(page.getByTestId('html-document-viewer')).toBeVisible();
 
