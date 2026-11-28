@@ -12,7 +12,7 @@
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
 - `src/modules/editor`: the Markdown editor module, using CodeMirror 6 with Source, Live (simultaneous 50/50 Source and rendered Preview) and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation. It is one format-specific editor, not the workspace's universal document surface.
-- `src/modules/documents/OfficeDocumentViewer.tsx`: browser-local Office and non-HTML document integration using `@p10node/office-engine`; it receives a stored Blob and returns edited Blob content through the host save callback.
+- `src/modules/documents/OfficeDocumentViewer.tsx`: browser-local Office and non-HTML document integration using the locally vendored engine source in `src/vendor/office-engine`; it receives a stored Blob and returns edited Blob content through the host save callback.
 - `src/modules/documents/html`: HTML-specific adapter, constrained host sizing, and proportional bidirectional scroll synchronization between the engine's source editor and rendered document surface. This mechanism is deliberately isolated from Markdown's logical-line scroll coordinator.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.

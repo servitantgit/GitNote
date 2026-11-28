@@ -1,4 +1,4 @@
-import { DocViewer } from '@p10node/office-engine';
+import { DocViewer } from '../../vendor/office-engine';
 import type { BinaryDocumentRecord } from '../../core/domain/document-source';
 
 interface Props {

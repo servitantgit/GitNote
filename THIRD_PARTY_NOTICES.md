@@ -1,9 +1,11 @@
 # Third-party notices
 
-## @p10node/office-engine 0.18.0
+## Vendored office-engine 0.18.0
 
 - Project: https://github.com/p10node/office-engine
-- Package: https://www.npmjs.com/package/@p10node/office-engine
+- Original package: https://www.npmjs.com/package/@p10node/office-engine
+- Vendored source tag: `v0.18.0`
+- Vendored source commit: `d7126505a00a431529d479c11d8d3372aeaf6cd0`
 - License: MIT
 
 MIT License

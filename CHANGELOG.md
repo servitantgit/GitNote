@@ -3,6 +3,7 @@
 All notable changes to GitNotes are documented here.
 
 ## [Unreleased]
+- Vendor the complete `office-engine` v0.18.0 runtime source in `src/vendor/office-engine` and remove the external npm package dependency; GitNotes now imports and builds its own copy.
 - Add Java and Python syntax highlighting for Markdown fenced code blocks in Source, Live and rendered Preview, using the same CM6/Lezer parsers; no IDE features are included.
 - Add an HTML-specific bidirectional scroll adapter between the source pane and rendered document pane, isolated from Markdown navigation synchronization.
 - Constrain the HTML viewer to its host area so its source and rendered panes scroll internally instead of expanding the document layout.

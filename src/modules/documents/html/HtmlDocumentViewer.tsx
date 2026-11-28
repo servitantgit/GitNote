@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { DocViewer } from '@p10node/office-engine';
+import { DocViewer } from '../../../vendor/office-engine';
 import type { BinaryDocumentRecord } from '../../../core/domain/document-source';
 import { connectHtmlScrollSurfaces } from './html-scroll-sync';
 
