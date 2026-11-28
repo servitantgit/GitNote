@@ -1,14 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorState } from '@codemirror/state';
 import type { DocumentScrollPosition } from '../modules/editor/navigation/scroll-position';
-import { Files, FileText, FileUp, GitBranch, Paperclip, Search, Settings, Plus, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
+import { GitBranch, Paperclip, Search, Settings, Plus, FolderPlus, Upload, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
 import { workspaceStore } from '../infrastructure/storage/database';
 import type { BinaryDocumentRecord, DocumentRecord } from '../core/domain/document-source';
 import { binaryDocumentSource, documentSource } from '../infrastructure/storage/local-document-source';
 import { workspaceFileSystem } from '../infrastructure/storage/local-workspace-file-system';
-import { validateWorkspaceName } from '../core/domain/workspace-file-system';
+import { validateWorkspaceName, type WorkspaceFileNode } from '../core/domain/workspace-file-system';
+import { WorkspaceFileTree } from '../modules/workspace/WorkspaceFileTree';
 import { detectDocumentFormat } from '../core/domain/document-format';
 import { DocumentActions } from '../modules/documents/DocumentActions';
 import { downloadDocument } from '../modules/documents/document-download';
@@ -19,6 +20,12 @@ import './app.css';
 const LOCAL_REPOSITORY_ID = 'local-workspace';
 const LOCAL_REPOSITORY = { id: LOCAL_REPOSITORY_ID, owner: 'local', name: 'Локальний робочий простір', defaultBranch: 'main' };
 const INITIAL_CONTENT = '# Моя перша нотатка\n\nGitNotes — робочий простір для нотаток і документів із Git-контролем версій.\n\n- Source: редагування Markdown\n- Live: Source і Preview поруч із синхронізованою прокруткою\n- Preview: режим читання';
+
+async function listWorkspaceTree(parentPath = ''): Promise<WorkspaceFileNode[]> {
+  const children = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID, parentPath);
+  const nested = await Promise.all(children.filter(node => node.kind === 'folder').map(node => listWorkspaceTree(node.path)));
+  return [...children, ...nested.flat()];
+}
 
 async function ensureWorkspaceFolder(name: string): Promise<void> {
   const nodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
@@ -37,10 +44,10 @@ const PdfDocumentViewer = lazy(() => import('../modules/documents/PdfDocumentVie
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
-function makeNote(title = 'Без назви', content = ''): DocumentRecord {
+function makeNote(title = 'Без назви', content = '', parentPath = 'Notes'): DocumentRecord {
   const now = Date.now();
   const id = crypto.randomUUID();
-  return { id, repositoryId: LOCAL_REPOSITORY_ID, title, content, path: `Notes/${id}.md`, syncState: 'local', createdAt: now, updatedAt: now };
+  return { id, repositoryId: LOCAL_REPOSITORY_ID, title, content, path: parentPath ? `${parentPath}/${id}.md` : `${id}.md`, syncState: 'local', createdAt: now, updatedAt: now };
 }
 
 function tabForNote(note: DocumentRecord) {
@@ -55,6 +62,8 @@ export function App() {
   const [mode, setMode] = useState<EditorMode>('source');
   const [notes, setNotes] = useState<DocumentRecord[]>([]);
   const [binaryDocuments, setBinaryDocuments] = useState<Omit<BinaryDocumentRecord, 'content'>[]>([]);
+  const [fileNodes, setFileNodes] = useState<WorkspaceFileNode[]>([]);
+  const [selectedFolderPath, setSelectedFolderPath] = useState('');
   const [binaryDocumentRecords, setBinaryDocumentRecords] = useState<Record<string, BinaryDocumentRecord>>({});
   const [binaryUiState, setBinaryUiState] = useState<Record<string, { dirty: boolean; saveState: SaveState; printRequest: number; downloadRequest: number }>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -97,12 +106,16 @@ export function App() {
     });
   }, []);
 
+  const refreshFileNodes = useCallback(async () => {
+    setFileNodes(await listWorkspaceTree());
+  }, []);
+
   const openNote = useCallback((note: DocumentRecord) => {
     const manager = managerRef.current;
     if (!manager) return;
     manager.openTab(tabForNote(note));
     persistWorkspace(manager);
-  }, [persistWorkspace]);
+  }, [persistWorkspace, refreshFileNodes, selectedFolderPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +161,7 @@ export function App() {
         managerRef.current = manager;
         setNotes(nextNotes);
         setBinaryDocuments(binaryMetas);
+        setFileNodes(await listWorkspaceTree());
         setBinaryDocumentRecords(Object.fromEntries(openedBinary.map(document => [document.id, document])));
         setWorkspace(manager.getSnapshot());
         await workspaceStore.save(manager.getSnapshot());
@@ -224,7 +238,7 @@ export function App() {
 
   const createNote = useCallback(async () => {
     if (saveState === 'loading') return;
-    const note = makeNote();
+    const note = makeNote('Без назви', '', selectedFolderPath);
     try {
       await workspaceFileSystem.createDocument(note, note.path!);
       setNotes(current => [note, ...current]);
@@ -233,7 +247,19 @@ export function App() {
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося створити нотатку.');
     }
-  }, [openNote, saveState]);
+  }, [openNote, saveState, selectedFolderPath]);
+
+  const createFolder = useCallback(async () => {
+    const name = window.prompt('Назва нової папки');
+    if (!name) return;
+    try {
+      await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, selectedFolderPath, name);
+      await refreshFileNodes();
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося створити папку.');
+    }
+  }, [refreshFileNodes, selectedFolderPath]);
 
   const openBinaryDocument = useCallback(async (id: string) => {
     const manager = managerRef.current;
@@ -253,6 +279,13 @@ export function App() {
     }
   }, [binaryDocumentRecords, persistWorkspace]);
 
+  const openFileNode = useCallback((node: WorkspaceFileNode) => {
+    if (!node.documentId) return;
+    const note = notes.find(item => item.id === node.documentId);
+    if (note) openNote(note);
+    else void openBinaryDocument(node.documentId);
+  }, [notes, openNote, openBinaryDocument]);
+
   const importBinaryDocument = useCallback(async (file: File) => {
     try {
       const name = validateWorkspaceName(file.name);
@@ -260,9 +293,8 @@ export function App() {
       if (!['.docx', '.xlsx', '.pptx', '.md', '.html', '.svg', '.pdf'].includes(extension)) {
         throw new Error('Підтримуються формати DOCX, XLSX, PPTX, MD, HTML, SVG та PDF.');
       }
-      await ensureWorkspaceFolder('Documents');
       const now = Date.now();
-      const path = `Documents/${name}`;
+      const path = selectedFolderPath ? `${selectedFolderPath}/${name}` : name;
       const document: BinaryDocumentRecord = {
         id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title: name, path,
         content: file, mediaType: file.type || 'application/octet-stream', size: file.size,
@@ -271,6 +303,7 @@ export function App() {
       await workspaceFileSystem.createBinaryDocument(document, path);
       const [metas, stored] = await Promise.all([binaryDocumentSource.list(), binaryDocumentSource.read(document.id)]);
       setBinaryDocuments(metas);
+      await refreshFileNodes();
       setBinaryDocumentRecords(current => ({ ...current, [document.id]: stored }));
       const manager = managerRef.current;
       if (manager) { manager.openTab(tabForBinary(stored)); persistWorkspace(manager); }
@@ -286,6 +319,7 @@ export function App() {
     try {
       await binaryDocumentSource.write(documentId, content);
       setBinaryDocuments(await binaryDocumentSource.list());
+      await refreshFileNodes();
       setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 }), dirty: false, saveState: 'saved' } }));
       setStorageError(null);
     } catch (error) {
@@ -307,6 +341,7 @@ export function App() {
       setBinaryDocumentRecords(current => { const next = { ...current }; delete next[activeBinaryDocument.id]; return next; });
       setBinaryUiState(current => { const next = { ...current }; delete next[activeBinaryDocument.id]; return next; });
       if (manager) persistWorkspace(manager);
+      await refreshFileNodes();
       setStorageError(null);
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося видалити документ.');
@@ -357,11 +392,12 @@ export function App() {
         if (manager && !manager.getSnapshot().activeTabId) manager.openTab(tabForNote(remaining[0]));
       }
       if (manager) persistWorkspace(manager);
+      await refreshFileNodes();
       setStorageError(null);
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося видалити нотатку.');
     }
-  }, [activeNote, notes, persistWorkspace]);
+  }, [activeNote, notes, persistWorkspace, refreshFileNodes]);
 
   const handleEditorContentChange = useCallback((content: string) => {
     const noteId = activeNoteIdRef.current;
@@ -403,19 +439,13 @@ export function App() {
       {storageError && <div className="storage-error" role="alert">{storageError}</div>}
       <div className="workspace">
         {sidebarOpen && <aside className="sidebar">
-          <div className="sidebar-heading"><span>НОТАТКИ</span><button className="icon-button" aria-label="Створити нотатку" title="Створити нотатку" onClick={createNote} disabled={saveState === 'loading'}><Plus size={17} /></button></div>
-          <div className="note-list" role="list" aria-label="Список нотаток">
-            {notes.map(note => (
-              <button key={note.id} className={`tree-item note-item${!activeBinaryDocument && note.id === activeNote?.id ? ' selected' : ''}`} onClick={() => openNote(note)} title={note.title}>
-                <Files size={16} /><span>{note.title || 'Без назви'}</span>
-              </button>
-            ))}
-          </div>
-          <div className="sidebar-heading documents-heading">
-            <span>ДОКУМЕНТИ</span>
-            <button className="icon-button" aria-label="Імпортувати документ" title="Імпортувати DOCX, XLSX, PPTX та інші підтримувані файли" onClick={() => fileInputRef.current?.click()} disabled={saveState === 'loading'}>
-              <FileUp size={16} />
-            </button>
+          <div className="sidebar-heading workspace-tree-heading">
+            <span>РОБОЧИЙ ПРОСТІР</span>
+            <div className="sidebar-tree-actions">
+              <button className="icon-button" aria-label="Створити нотатку" title="Створити нотатку в обраній папці" onClick={createNote} disabled={saveState === 'loading'}><Plus size={16} /></button>
+              <button className="icon-button" aria-label="Створити папку" title="Створити вкладену папку" onClick={() => void createFolder()} disabled={saveState === 'loading'}><FolderPlus size={16} /></button>
+              <button className="icon-button" aria-label="Імпортувати документ" title="Імпортувати файл в обрану папку" onClick={() => fileInputRef.current?.click()} disabled={saveState === 'loading'}><Upload size={16} /></button>
+            </div>
           </div>
           <input ref={fileInputRef} className="workspace-file-input" type="file" accept=".docx,.xlsx,.pptx,.md,.html,.svg,.pdf" aria-label="Файл для імпорту"
             onChange={event => {
@@ -424,13 +454,12 @@ export function App() {
               if (file) void importBinaryDocument(file);
             }}
           />
-          <div className="note-list document-list" role="list" aria-label="Список документів">
-            {binaryDocuments.map(document => (
-              <button key={document.id} className={`tree-item note-item${activeBinaryDocument?.id === document.id ? ' selected' : ''}`} onClick={() => void openBinaryDocument(document.id)} title={document.title}>
-                <FileText size={16} /><span>{document.title}</span>
-              </button>
-            ))}
-          </div>
+          <WorkspaceFileTree
+            nodes={fileNodes}
+            selectedPath={selectedFolderPath}
+            onSelectFolder={setSelectedFolderPath}
+            onOpenFile={openFileNode}
+          />
           <div className="sidebar-footer"><span className="status-dot" />Лише локальне збереження</div>
         </aside>}
         <section className="document-area">
