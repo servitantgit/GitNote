@@ -139,7 +139,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Stage 2: file management and navigation
 
-- [ ] Visible file/folder tree.
+- [x] Initial visible file/folder tree backed by the repository VFS; folder selection, folder creation, note creation and supported-file import work within the selected folder. Rename/move controls and broader format handlers remain planned.
 - [ ] Rename/move with Markdown-link rewriting.
 - [ ] Search index (MiniSearch or equivalent).
 - [ ] Backlinks.
@@ -182,10 +182,9 @@ Only after editor and local workspace foundations are ready:
 
 ## Known limitations and cautions
 
-- The visible UI is still a flat notes list, not the VFS tree.
-- The initial document import/open workflow still lists notes and binary documents in separate sidebar groups, but both use one shared tab strip. Open binary viewers remain mounted while inactive, preserving their editor/controller/iframe state. The full navigable VFS tree and a general format-handler/opening contract are not implemented.
+- The sidebar now renders one recursive VFS tree for notes and binary files; the separate Notes and Documents lists have been removed. Users can select a folder, create a child folder, create a Markdown note in that folder, and import currently supported file formats into it. Existing `Notes/` and `Documents/` paths remain intact and visible as ordinary folders.
+- File-tree rename/move controls, drag-and-drop, recursive delete from the tree, and a general format-handler/opening contract are not implemented yet. Existing VFS rename/move/delete operations remain available at the storage layer.
 - Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF is read-only and relies on browser-native PDF support.
-- Local VFS operations exist as a storage/domain service; they are not yet exposed as normal user-facing file manager workflows.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
 - Attachments are metadata-only at this stage.
 - No remote GitHub repository manager, OAuth, GitHub API integration, commits, pushes or remote conflict UI exists.
