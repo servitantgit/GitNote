@@ -1,4 +1,5 @@
 import { FileText, FileType, FileSpreadsheet, Presentation, Plus } from 'lucide-react';
+import type { MouseEvent } from 'react';
 import type { OfficeDocumentKind } from '../documents/create-office-document';
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
 }
 
 export function WorkspaceCreateMenu({ onCreateNote, onCreateOffice, disabled = false }: Props) {
-  const closeMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const closeMenu = (event: MouseEvent<HTMLButtonElement>) => {
     event.currentTarget.closest('details')?.removeAttribute('open');
   };
   return (
