@@ -254,6 +254,38 @@ test('imports a local document, opens it and restores its Blob after reload', as
 
 
 
+test('synchronizes HTML source and rendered document scrolling independently', async ({ page }) => {
+  const paragraphs = Array.from({ length: 90 }, (_, index) =>
+    '<p>HTML section ' + (index + 1) + ' with enough content to occupy space in the rendered document.</p>',
+  ).join('');
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Scroll test</title></head><body><h1>HTML scroll test</h1>' + paragraphs + '</body></html>';
+  await importOfficeFile(page, 'Scroll-test.html', 'text/html', Buffer.from(html));
+  await expect(page.getByTestId('html-document-viewer')).toBeVisible();
+
+  await page.getByTestId('de-code-toggle').click();
+  const source = page.locator('.html-document-viewer .de-src-scroll');
+  const preview = page.locator('.html-document-viewer .de-main .de-scroll');
+  await expect(source).toBeVisible();
+  await expect(preview).toBeVisible();
+  await expect.poll(() => source.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
+  await expect.poll(() => preview.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
+
+  await source.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.62;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(() => preview.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+  const sourceBeforeReverse = await source.evaluate(element => element.scrollTop);
+  await preview.evaluate(element => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.28;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(async () => Math.abs(
+    (await source.evaluate(element => element.scrollTop)) - sourceBeforeReverse,
+  )).toBeGreaterThan(50);
+});
+
 test('imports, edits, saves and restores a DOCX through IndexedDB', async ({ page }) => {
   await importOfficeFile(
     page,

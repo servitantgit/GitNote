@@ -28,6 +28,7 @@ async function ensureWorkspaceFolder(name: string): Promise<void> {
 }
 
 const OfficeDocumentViewer = lazy(() => import('../modules/documents/OfficeDocumentViewer').then(module => ({ default: module.OfficeDocumentViewer })));
+const HtmlDocumentViewer = lazy(() => import('../modules/documents/html/HtmlDocumentViewer').then(module => ({ default: module.HtmlDocumentViewer })));
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
@@ -438,9 +439,15 @@ export function App() {
                 <button className="icon-button" aria-label="Закрити документ" title="Закрити документ" onClick={() => { if (canLeaveBinaryDocument()) setActiveBinaryDocument(null); }}><X size={16} /></button>
               </div>
             </div>
-            <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}>
-              <OfficeDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} />
-            </Suspense>
+            {activeBinaryDocument.title.toLowerCase().endsWith('.html') ? (
+              <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора HTML…</div>}>
+                <HtmlDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} />
+              </Suspense>
+            ) : (
+              <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}>
+                <OfficeDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} />
+              </Suspense>
+            )}
           </> : activeNote ? <>
             <div className="document-header">
               <div className="document-title-wrap">

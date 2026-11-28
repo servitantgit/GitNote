@@ -3,6 +3,8 @@
 All notable changes to GitNotes are documented here.
 
 ## [Unreleased]
+- Add an HTML-specific bidirectional scroll adapter between the source pane and rendered document pane, isolated from Markdown navigation synchronization.
+- Add Chromium regression coverage for scrolling HTML source and rendered panes in both directions.
 
 ### Added
 - Add local import, listing, opening and deletion for DOCX, XLSX, PPTX, Markdown, HTML and SVG, with browser-local editing and Blob saves through `@p10node/office-engine`.

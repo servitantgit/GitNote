@@ -12,7 +12,8 @@
 
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
 - `src/modules/editor`: the Markdown editor module, using CodeMirror 6 with Source, Live (simultaneous 50/50 Source and rendered Preview) and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation. It is one format-specific editor, not the workspace's universal document surface.
-- `src/modules/documents/OfficeDocumentViewer.tsx`: browser-local Office/document viewer integration using `@p10node/office-engine`; it receives a stored Blob and returns edited Blob content through the host save callback.
+- `src/modules/documents/OfficeDocumentViewer.tsx`: browser-local Office and non-HTML document integration using `@p10node/office-engine`; it receives a stored Blob and returns edited Blob content through the host save callback.
+- `src/modules/documents/html`: HTML-specific adapter and proportional bidirectional scroll synchronization between the engine's source editor and rendered document surface. This mechanism is deliberately isolated from Markdown's logical-line scroll coordinator.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
 - `src/core/domain/document-format.ts`: format-neutral filename/MIME classifier. Recognized extensions take precedence over browser MIME metadata; MIME lookup is the fallback. It does not imply a viewer/editor exists for every detected format.
@@ -29,6 +30,7 @@
 - Live keeps the Markdown source editable beside the rendered Preview; Marked renders Markdown and DOMPurify sanitizes the generated HTML.
 - Undo/redo use CodeMirror history. CodeMirror's standard editing keymaps and search panel remain available.
 - Preview renders GitHub-Flavored Markdown through Marked and sanitizes generated HTML with DOMPurify before insertion.
+- HTML uses a separate proportional scroll adapter because its source editor is a plain-text area and its rendered view is a paginated document surface; it does not share Markdown's Lezer anchors or CodeMirror logical-line coordinator.
 - The logical per-document scroll position is the single source of truth across tab switches and editor modes. The coordinator maps positions between Source/Live and rendered Preview; Preview translates between rendered pixels and logical document lines using paragraph/heading/image anchors, with proportional fallback only when rendered blocks cannot be matched. Native CodeMirror scroll snapshots are not used, avoiding competing restoration owners.
 - `src/modules/editor/Outline.tsx` renders an optional heading navigation panel. It parses headings through the Lezer-backed `outline.ts` helper, tracks the active heading from coordinator position updates, and navigates with `coordinator.scrollTo()`; it does not create another scroll state or adapter.
 - `src/modules/editor/Minimap.tsx` renders a canvas minimap beside the active editor surface. It uses Lezer Markdown syntax-tree ranges for heading, code and list marks, displays the logical viewport/cursor, and sends click/drag navigation through the existing per-document scroll coordinator. It does not own scroll synchronization or persist separate position state.
