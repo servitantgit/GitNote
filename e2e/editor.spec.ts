@@ -236,6 +236,7 @@ test('imports a local document, opens it and restores its Blob after reload', as
   });
   await expect(page.getByRole('button', { name: 'Browser import.md' })).toBeVisible();
   await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await expect.poll(() => page.locator('.binary-document-header').evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(50);
   await expect(page.getByRole('alert')).toHaveCount(0);
 
   const stored = await page.evaluate(async () => {
