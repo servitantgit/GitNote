@@ -62,7 +62,7 @@ export async function renderMarkdown(
       }
       const target = imageToken.href.trim();
       const isLocalPath = Boolean(target) && !target.startsWith('#') &&
-        !target.startsWith('//') && !/^[a-z][a-z\\d+.-]*:/i.test(target);
+        !target.startsWith('//') && !/^[a-z][a-z0-9+.-]*:/i.test(target);
       if (isLocalPath && workspaceImageResolver) workspaceImageTokens.push({ token: imageToken, target });
     });
 

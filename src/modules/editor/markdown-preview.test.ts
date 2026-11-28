@@ -102,7 +102,7 @@ describe('workspace image references', () => {
       async () => null,
     );
     expect(html).toContain('src="https://example.com/photo.png"');
-    expect(html).toContain('Зображення не знайдено');
+    expect(html).toContain('<img src="" alt="missing">');
     expect(html).not.toContain('gitnote.invalid/workspace-image');
   });
 });
