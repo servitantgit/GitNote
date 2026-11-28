@@ -45,25 +45,30 @@ export async function renderMarkdown(
   const tokens = marked.lexer(content, { gfm: true });
   const pending = new Map<string, Promise<LanguageSupport>>();
   const attachmentTokens: Array<{ token: Tokens.Image; id: string }> = [];
+  const attachmentResolver = resolveAttachment;
+  const registerAttachmentUrl = onAttachmentUrl;
 
-  marked.walkTokens(tokens, token => {
-    if (token.type !== 'image' || !resolveAttachment || !onAttachmentUrl) return;
-    const match = /^attachment:([a-f0-9-]{36})$/i.exec(token.href);
-    if (match) attachmentTokens.push({ token, id: match[1] });
-  });
+  if (attachmentResolver && registerAttachmentUrl) {
+    marked.walkTokens(tokens, token => {
+      if (token.type !== 'image') return;
+      const imageToken = token as Tokens.Image;
+      const match = /^attachment:([a-f0-9-]{36})$/i.exec(imageToken.href);
+      if (match) attachmentTokens.push({ token: imageToken, id: match[1] });
+    });
 
-  await Promise.all(attachmentTokens.map(async ({ token, id }, index) => {
-    try {
-      const blob = await resolveAttachment(id);
-      const objectUrl = URL.createObjectURL(blob);
-      const placeholder = `https://gitnote.invalid/attachment/${index}`;
-      token.href = placeholder;
-      onAttachmentUrl(placeholder, objectUrl);
-    } catch {
-      token.href = '';
-      token.text = token.text || 'Вкладення не знайдено';
-    }
-  }));
+    await Promise.all(attachmentTokens.map(async ({ token, id }, index) => {
+      try {
+        const blob = await attachmentResolver(id);
+        const objectUrl = URL.createObjectURL(blob);
+        const placeholder = `https://gitnote.invalid/attachment/${index}`;
+        token.href = placeholder;
+        registerAttachmentUrl(placeholder, objectUrl);
+      } catch {
+        token.href = '';
+        token.text = token.text || 'Вкладення не знайдено';
+      }
+    }));
+  }
 
   marked.walkTokens(tokens, token => {
     if (token.type !== 'code') return;
