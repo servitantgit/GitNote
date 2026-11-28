@@ -18,7 +18,7 @@ function FileIcon({ name }: { name: string }) {
 }
 
 export function WorkspaceFileTree({ nodes, selectedPath, onSelectFolder, onOpenFile }: Props) {
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['Notes', 'Documents']));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set<string>());
   const childrenByParent = useMemo(() => {
     const groups = new Map<string, WorkspaceFileNode[]>();
     for (const node of nodes) {
