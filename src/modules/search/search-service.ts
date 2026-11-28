@@ -274,7 +274,11 @@ export async function searchWorkspaceDocuments(
     const queryTokens = term.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
     const fuzzyGrams = [...new Set(queryTokens.flatMap(token => createSearchGrams(token)))];
     if (queryTokens.length && queryTokens.every(token => token.length >= 3) && fuzzyGrams.length) {
-      const fuzzyCandidates = await database.searchDocuments.where('grams').anyOf(fuzzyGrams).toArray();
+      const fuzzyCandidateRows = await database.searchDocuments.where('grams').anyOf(fuzzyGrams).toArray();
+      // Multi-entry anyOf may return the same document once per matching gram.
+      const candidatesById = new Map<string, LocalSearchDocument>();
+      for (const candidate of fuzzyCandidateRows) candidatesById.set(candidate.id, candidate);
+      const fuzzyCandidates = [...candidatesById.values()];
       scannedCount = fuzzyCandidates.length;
 
       for (const document of fuzzyCandidates) {

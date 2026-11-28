@@ -1253,8 +1253,9 @@ test('finds a note by word prefixes and a small typo when exact search has no re
   await page.getByRole('button', { name: 'Знайти' }).click();
 
   const result = page.locator('.workspace-search-results button');
-  await expect(result).toContainText('Fuzzy search note');
-  await expect(result).toContainText('Схожий збіг');
+  await expect(result).toHaveCount(1);
+  await expect(result.first()).toContainText('Fuzzy search note');
+  await expect(result.first()).toContainText('Схожий збіг');
 });
 
 test('searches text in imported DOCX documents', async ({ page }) => {
