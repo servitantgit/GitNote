@@ -20,3 +20,8 @@
 .file-tree-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-tree-row.file-row{gap:8px}
 .file-tree-empty{padding:12px 10px;color:var(--muted);font-size:12px}
+
+/* Binary formats already render their filename in the format-specific toolbar. Keep only shared actions here. */
+.binary-document-header{min-height:40px;padding:4px clamp(12px,3vw,32px);justify-content:flex-end;gap:8px}
+.binary-document-header .document-actions{min-height:32px;gap:6px}
+.binary-document-header .save-indicator{font-size:11px}
