@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, File, FileImage, FileText, Folder, FolderOpen } from 'lucide-react';
+import { ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import { WorkspaceFileIcon } from './WorkspaceFileIcon';
 import type { WorkspaceFileNode } from '../../core/domain/workspace-file-system';
 
 interface Props {
@@ -8,13 +9,6 @@ interface Props {
   selectedPath: string;
   onSelectFolder: (path: string) => void;
   onOpenFile: (node: WorkspaceFileNode) => void;
-}
-
-function FileIcon({ name }: { name: string }) {
-  const extension = name.split('.').pop()?.toLowerCase();
-  if (['md', 'markdown', 'txt', 'html', 'htm', 'csv'].includes(extension ?? '')) return <FileText size={15} />;
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico'].includes(extension ?? '')) return <FileImage size={15} />;
-  return <File size={15} />;
 }
 
 export function WorkspaceFileTree({ nodes, selectedPath, onSelectFolder, onOpenFile }: Props) {
@@ -70,7 +64,7 @@ export function WorkspaceFileTree({ nodes, selectedPath, onSelectFolder, onOpenF
           onClick={() => onOpenFile(node)}
           title={node.path}
         >
-          <FileIcon name={node.name} />
+          <WorkspaceFileIcon name={node.name} />
           <span>{node.name}</span>
         </button>
       );
