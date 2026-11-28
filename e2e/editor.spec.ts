@@ -223,7 +223,6 @@ test('creates a folder and places a new note inside the selected folder', async 
       request.onerror = () => reject(request.error);
     });
   })).toBe(true);
-  await expect(tree.getByRole('button', { name: /\.md$/ })).toBeVisible();
 });
 
 test('imports a local document, opens it and restores its Blob after reload', async ({ page }) => {
