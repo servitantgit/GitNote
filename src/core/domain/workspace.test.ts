@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WorkspaceManager, type WorkspaceRepository, type WorkspaceTab } from './workspace';
+import { WorkspaceManager, workspaceTabDocumentId, workspaceTabDocumentType, type WorkspaceRepository, type WorkspaceTab } from './workspace';
 
 const repoA: WorkspaceRepository = { id: 'repo-a', owner: 'owner', name: 'notes-a', defaultBranch: 'main' };
 const repoB: WorkspaceRepository = { id: 'repo-b', owner: 'owner', name: 'notes-b', defaultBranch: 'develop' };
@@ -78,5 +78,25 @@ describe('WorkspaceManager', () => {
     expect(() => workspace.openTab(tabB)).toThrow('Unknown repository');
     workspace.openTab(tabA);
     expect(() => workspace.openTab({ ...tabA, noteId: 'different-note' })).toThrow('cannot be reused');
+  });
+});
+
+
+describe('format-neutral document tabs', () => {
+  const binaryTab: WorkspaceTab = { id: 'binary:doc-1', repositoryId: repoA.id, branch: 'main', documentType: 'binary', documentId: 'doc-1', title: 'Report.docx', openedAt: 3 };
+  it('keeps note and binary documents in one ordered tab collection', () => {
+    const workspace = new WorkspaceManager(); workspace.registerRepository(repoA); workspace.openTab(tabA); workspace.openTab(binaryTab);
+    expect(workspace.getSnapshot().tabs.map(tab => tab.id)).toEqual(['tab-a', 'binary:doc-1']);
+    expect(workspaceTabDocumentType(workspace.getSnapshot().tabs[1])).toBe('binary');
+    expect(workspaceTabDocumentId(workspace.getSnapshot().tabs[1])).toBe('doc-1');
+    expect(workspace.getSnapshot().activeTabId).toBe(binaryTab.id);
+  });
+  it('normalizes legacy note-only snapshots', () => {
+    const workspace = new WorkspaceManager({ repositories: [repoA], tabs: [tabA], activeRepositoryId: repoA.id, activeTabId: tabA.id });
+    expect(workspace.getSnapshot().tabs[0]).toMatchObject({ documentType: 'note', documentId: 'note-a', noteId: 'note-a' });
+  });
+  it('rejects reusing a tab ID for a different document type', () => {
+    const workspace = new WorkspaceManager(); workspace.registerRepository(repoA); workspace.openTab(tabA);
+    expect(() => workspace.openTab({ ...tabA, documentType: 'binary', documentId: 'note-a', noteId: undefined })).toThrow('cannot be reused');
   });
 });

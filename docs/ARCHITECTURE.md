@@ -67,7 +67,11 @@ Every feature change must include regression coverage appropriate to its behavio
 - Every tab carries its repository ID and branch; callers must use that context for document operations.
 - Removing a repository does not silently activate another repository.
 - Closing a tab does not delete its note. Deleting a note removes it from local note storage and closes its corresponding tab.
-- The current UI integrates local-workspace notes. GitHub repository registration and loading notes from remote repositories remain future work.
+- The UI integrates local-workspace notes and binary documents in one format-neutral tab strip. Each open binary tab retains its mounted format viewer; Markdown retains per-document CodeMirror EditorState in the editor module. GitHub repository registration and loading notes from remote repositories remain future work.
+
+## Per-tab document lifecycle
+
+`WorkspaceTab` identifies a document by `documentType` (`note` or `binary`) and `documentId`; `noteId` remains readable for older persisted snapshots and is normalized by `WorkspaceManager`. `WorkspaceManager` owns the shared ordered tab collection and active-tab selection. The app retains one binary record and UI/action state per open binary document. Format-specific viewers are keyed by tab and stay mounted in hidden panels while inactive, preserving their editor/controller/iframe state. Closing a tab releases only its in-memory viewer state; it does not delete the underlying document. Closing a binary tab with unsaved edits requires confirmation. Reload restores persisted tab identities and reloads their binary Blob records from IndexedDB.
 
 ## Local persistence and compatibility
 

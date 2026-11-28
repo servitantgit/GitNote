@@ -13,7 +13,7 @@ import { detectDocumentFormat } from '../core/domain/document-format';
 import { DocumentActions } from '../modules/documents/DocumentActions';
 import { downloadDocument } from '../modules/documents/document-download';
 import { printMarkdownDocument } from '../modules/documents/markdown-print';
-import { WorkspaceManager, type WorkspaceSnapshot } from '../core/domain/workspace';
+import { WorkspaceManager, workspaceTabDocumentId, workspaceTabDocumentType, type WorkspaceSnapshot } from '../core/domain/workspace';
 import './app.css';
 
 const LOCAL_REPOSITORY_ID = 'local-workspace';
@@ -44,18 +44,19 @@ function makeNote(title = 'Без назви', content = ''): DocumentRecord {
 }
 
 function tabForNote(note: DocumentRecord) {
-  return { id: `note:${note.id}`, repositoryId: note.repositoryId, branch: 'main', noteId: note.id, title: note.title || 'Без назви', openedAt: Date.now() };
+  return { id: `note:${note.id}`, repositoryId: note.repositoryId, branch: 'main', documentType: 'note' as const, documentId: note.id, noteId: note.id, title: note.title || 'Без назви', openedAt: Date.now() };
+}
+
+function tabForBinary(document: Pick<BinaryDocumentRecord, 'id' | 'repositoryId' | 'title'>) {
+  return { id: `binary:${document.id}`, repositoryId: document.repositoryId, branch: 'main', documentType: 'binary' as const, documentId: document.id, title: document.title, openedAt: Date.now() };
 }
 
 export function App() {
   const [mode, setMode] = useState<EditorMode>('source');
   const [notes, setNotes] = useState<DocumentRecord[]>([]);
   const [binaryDocuments, setBinaryDocuments] = useState<Omit<BinaryDocumentRecord, 'content'>[]>([]);
-  const [activeBinaryDocument, setActiveBinaryDocument] = useState<BinaryDocumentRecord | null>(null);
-  const [binaryDirty, setBinaryDirty] = useState(false);
-  const [binarySaveState, setBinarySaveState] = useState<SaveState>('saved');
-  const [binaryPrintRequest, setBinaryPrintRequest] = useState(0);
-  const [binaryDownloadRequest, setBinaryDownloadRequest] = useState(0);
+  const [binaryDocumentRecords, setBinaryDocumentRecords] = useState<Record<string, BinaryDocumentRecord>>({});
+  const [binaryUiState, setBinaryUiState] = useState<Record<string, { dirty: boolean; saveState: SaveState; printRequest: number; downloadRequest: number }>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -75,9 +76,17 @@ export function App() {
     [workspace],
   );
   const activeNote = useMemo(
-    () => notes.find(note => note.id === activeTab?.noteId) ?? null,
+    () => activeTab && workspaceTabDocumentType(activeTab) === 'note'
+      ? notes.find(note => note.id === workspaceTabDocumentId(activeTab)) ?? null
+      : null,
     [notes, activeTab],
   );
+  const activeBinaryDocument = activeTab && workspaceTabDocumentType(activeTab) === 'binary'
+    ? binaryDocumentRecords[workspaceTabDocumentId(activeTab)] ?? null
+    : null;
+  const activeBinaryUi = activeBinaryDocument
+    ? binaryUiState[activeBinaryDocument.id] ?? { dirty: false, saveState: 'saved' as SaveState, printRequest: 0, downloadRequest: 0 }
+    : null;
   activeNoteIdRef.current = activeNote?.id ?? null;
 
   const persistWorkspace = useCallback((manager: WorkspaceManager) => {
@@ -88,21 +97,12 @@ export function App() {
     });
   }, []);
 
-  const canLeaveBinaryDocument = useCallback((nextDocumentId?: string) => {
-    if (!activeBinaryDocument || activeBinaryDocument.id === nextDocumentId || !binaryDirty) return true;
-    return window.confirm('Документ має незбережені зміни. Відкрити інший документ і відкинути їх?');
-  }, [activeBinaryDocument, binaryDirty]);
-
-  const openNote = useCallback((note: DocumentRecord, confirmedSwitch = false) => {
-    if (!confirmedSwitch && !canLeaveBinaryDocument()) return;
-    setActiveBinaryDocument(null);
-    setBinaryDirty(false);
-    setBinarySaveState('saved');
+  const openNote = useCallback((note: DocumentRecord) => {
     const manager = managerRef.current;
     if (!manager) return;
     manager.openTab(tabForNote(note));
     persistWorkspace(manager);
-  }, [canLeaveBinaryDocument, persistWorkspace]);
+  }, [persistWorkspace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,16 +133,22 @@ export function App() {
         }
 
         const validNoteIds = new Set(nextNotes.map(note => note.id));
+        const validBinaryIds = new Set(binaryMetas.map(document => document.id));
         for (const tab of manager.getSnapshot().tabs) {
-          if (tab.repositoryId === LOCAL_REPOSITORY_ID && !validNoteIds.has(tab.noteId)) manager.closeTab(tab.id);
+          if (tab.repositoryId !== LOCAL_REPOSITORY_ID) continue;
+          const documentId = workspaceTabDocumentId(tab);
+          const valid = workspaceTabDocumentType(tab) === 'note' ? validNoteIds.has(documentId) : validBinaryIds.has(documentId);
+          if (!valid) manager.closeTab(tab.id);
         }
         const current = manager.getSnapshot();
-        const activeExists = current.tabs.some(tab => tab.id === current.activeTabId && validNoteIds.has(tab.noteId));
+        const activeExists = current.tabs.some(tab => tab.id === current.activeTabId);
         if (!activeExists && nextNotes[0]) manager.openTab(tabForNote(nextNotes[0]));
-
+        const openedBinary = await Promise.all(current.tabs.filter(tab => workspaceTabDocumentType(tab) === 'binary')
+          .map(tab => binaryDocumentSource.read(workspaceTabDocumentId(tab))));
         managerRef.current = manager;
         setNotes(nextNotes);
         setBinaryDocuments(binaryMetas);
+        setBinaryDocumentRecords(Object.fromEntries(openedBinary.map(document => [document.id, document])));
         setWorkspace(manager.getSnapshot());
         await workspaceStore.save(manager.getSnapshot());
         if (!cancelled) setSaveState('saved');
@@ -217,35 +223,37 @@ export function App() {
   }, [activeNote, persistWorkspace]);
 
   const createNote = useCallback(async () => {
-    if (saveState === 'loading' || !canLeaveBinaryDocument()) return;
+    if (saveState === 'loading') return;
     const note = makeNote();
     try {
       await workspaceFileSystem.createDocument(note, note.path!);
       setNotes(current => [note, ...current]);
-      openNote(note, true);
+      openNote(note);
       setMode('source');
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося створити нотатку.');
     }
-  }, [canLeaveBinaryDocument, openNote, saveState]);
+  }, [openNote, saveState]);
 
   const openBinaryDocument = useCallback(async (id: string) => {
-    if (activeBinaryDocument?.id === id || !canLeaveBinaryDocument(id)) return;
+    const manager = managerRef.current;
+    if (!manager) return;
     try {
-      const document = await binaryDocumentSource.read(id);
-      setBinaryPrintRequest(0);
-      setBinaryDownloadRequest(0);
-      setActiveBinaryDocument(document);
-      setBinaryDirty(false);
-      setBinarySaveState('saved');
+      let document = binaryDocumentRecords[id];
+      if (!document) {
+        document = await binaryDocumentSource.read(id);
+        setBinaryDocumentRecords(current => ({ ...current, [id]: document! }));
+      }
+      manager.openTab(tabForBinary(document));
+      persistWorkspace(manager);
+      setBinaryUiState(current => ({ ...current, [id]: current[id] ?? { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 } }));
       setStorageError(null);
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося відкрити документ.');
     }
-  }, [activeBinaryDocument, canLeaveBinaryDocument]);
+  }, [binaryDocumentRecords, persistWorkspace]);
 
   const importBinaryDocument = useCallback(async (file: File) => {
-    if (!canLeaveBinaryDocument()) return;
     try {
       const name = validateWorkspaceName(file.name);
       const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
@@ -263,34 +271,29 @@ export function App() {
       await workspaceFileSystem.createBinaryDocument(document, path);
       const [metas, stored] = await Promise.all([binaryDocumentSource.list(), binaryDocumentSource.read(document.id)]);
       setBinaryDocuments(metas);
-      setBinaryPrintRequest(0);
-      setBinaryDownloadRequest(0);
-      setActiveBinaryDocument(stored);
-      setBinaryDirty(false);
-      setBinarySaveState('saved');
+      setBinaryDocumentRecords(current => ({ ...current, [document.id]: stored }));
+      const manager = managerRef.current;
+      if (manager) { manager.openTab(tabForBinary(stored)); persistWorkspace(manager); }
+      setBinaryUiState(current => ({ ...current, [document.id]: { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 } }));
       setStorageError(null);
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося імпортувати документ.');
     }
-  }, [canLeaveBinaryDocument]);
+  }, [persistWorkspace]);
 
-  const saveBinaryDocument = useCallback(async (content: Blob) => {
-    if (!activeBinaryDocument) return;
-    setBinarySaveState('saving');
+  const saveBinaryDocument = useCallback(async (documentId: string, content: Blob) => {
+    setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 }), saveState: 'saving' } }));
     try {
-      await binaryDocumentSource.write(activeBinaryDocument.id, content);
-      const [stored, metas] = await Promise.all([binaryDocumentSource.read(activeBinaryDocument.id), binaryDocumentSource.list()]);
-      setActiveBinaryDocument(stored);
-      setBinaryDocuments(metas);
-      setBinaryDirty(false);
-      setBinarySaveState('saved');
+      await binaryDocumentSource.write(documentId, content);
+      setBinaryDocuments(await binaryDocumentSource.list());
+      setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 }), dirty: false, saveState: 'saved' } }));
       setStorageError(null);
     } catch (error) {
-      setBinarySaveState('error');
+      setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? { dirty: true, saveState: 'saved', printRequest: 0, downloadRequest: 0 }), saveState: 'error' } }));
       setStorageError(error instanceof Error ? error.message : 'Не вдалося зберегти документ.');
       throw error;
     }
-  }, [activeBinaryDocument]);
+  }, []);
 
   const deleteActiveBinaryDocument = useCallback(async () => {
     if (!activeBinaryDocument) return;
@@ -298,26 +301,35 @@ export function App() {
     try {
       if (activeBinaryDocument.path) await workspaceFileSystem.remove(activeBinaryDocument.repositoryId, activeBinaryDocument.path);
       else await binaryDocumentSource.remove(activeBinaryDocument.id);
+      const manager = managerRef.current;
+      manager?.closeTab(`binary:${activeBinaryDocument.id}`);
       setBinaryDocuments(await binaryDocumentSource.list());
-      setActiveBinaryDocument(null);
-      setBinaryDirty(false);
-      setBinarySaveState('saved');
+      setBinaryDocumentRecords(current => { const next = { ...current }; delete next[activeBinaryDocument.id]; return next; });
+      setBinaryUiState(current => { const next = { ...current }; delete next[activeBinaryDocument.id]; return next; });
+      if (manager) persistWorkspace(manager);
       setStorageError(null);
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося видалити документ.');
     }
-  }, [activeBinaryDocument]);
+  }, [activeBinaryDocument, persistWorkspace]);
 
   const closeTab = useCallback((tabId: string) => {
     const manager = managerRef.current;
     if (!manager) return;
+    const tab = manager.getSnapshot().tabs.find(item => item.id === tabId);
+    if (tab && workspaceTabDocumentType(tab) === 'binary') {
+      const documentId = workspaceTabDocumentId(tab);
+      if (binaryUiState[documentId]?.dirty && !window.confirm('Документ має незбережені зміни. Закрити вкладку та відкинути їх?')) return;
+      setBinaryDocumentRecords(current => { const next = { ...current }; delete next[documentId]; return next; });
+      setBinaryUiState(current => { const next = { ...current }; delete next[documentId]; return next; });
+    }
     manager.closeTab(tabId);
     if (!manager.getSnapshot().activeTabId) {
       const fallback = notes.find(note => `note:${note.id}` !== tabId);
       if (fallback) manager.openTab(tabForNote(fallback));
     }
     persistWorkspace(manager);
-  }, [notes, persistWorkspace]);
+  }, [binaryUiState, notes, persistWorkspace]);
 
   const deleteActiveNote = useCallback(async () => {
     if (!activeNote) return;
@@ -422,81 +434,45 @@ export function App() {
           <div className="sidebar-footer"><span className="status-dot" />Лише локальне збереження</div>
         </aside>}
         <section className="document-area">
-          {!activeBinaryDocument && <div className="document-tabs" role="tablist" aria-label="Відкриті документи">
+          <div className="document-tabs" role="tablist" aria-label="Відкриті документи">
             {workspace?.tabs.map(tab => {
-              const note = notes.find(item => item.id === tab.noteId);
-              if (!note) return null;
-              const inactive = tab.repositoryId !== activeRepositoryId;
+              const documentId = workspaceTabDocumentId(tab); const isNote = workspaceTabDocumentType(tab) === 'note';
+              const note = isNote ? notes.find(item => item.id === documentId) : null;
+              const binary = !isNote ? binaryDocumentRecords[documentId] : null;
+              const title = note?.title || binary?.title || tab.title || 'Без назви'; const inactive = tab.repositoryId !== activeRepositoryId;
               return <div className={`document-tab${tab.id === workspace.activeTabId ? ' active' : ''}${inactive ? ' inactive' : ''}`} key={tab.id}>
-                <button role="tab" aria-selected={tab.id === workspace.activeTabId} onClick={() => {
-                  managerRef.current?.selectTab(tab.id);
-                  if (managerRef.current) persistWorkspace(managerRef.current);
-                }} title={inactive ? 'Репозиторій не активний. Локальне редагування доступне.' : tab.title}>
-                  {inactive && <LockKeyhole size={12} />}<span>{note.title || 'Без назви'}</span>
-                </button>
-                <button className="tab-close" aria-label={`Закрити ${note.title || 'Без назви'}`} onClick={() => closeTab(tab.id)}><X size={13} /></button>
+                <button role="tab" aria-selected={tab.id === workspace.activeTabId} onClick={() => { managerRef.current?.selectTab(tab.id); if (managerRef.current) persistWorkspace(managerRef.current); }} title={inactive ? 'Репозиторій не активний. Локальне редагування доступне.' : title}>{inactive && <LockKeyhole size={12} />}<span>{title}</span>{binaryUiState[documentId]?.dirty && <span aria-label="Є незбережені зміни">•</span>}</button>
+                <button className="tab-close" aria-label={`Закрити ${title}`} onClick={() => closeTab(tab.id)}><X size={13} /></button>
               </div>;
             })}
-          </div>}
-          {activeBinaryDocument ? <>
-            <div className="document-header">
-              <div className="document-title-wrap">
-                <div className="breadcrumb">Документи <span>/</span> Локальний робочий простір</div>
-                <div className="document-title-text">{activeBinaryDocument.title}</div>
-              </div>
-              <div className="document-actions">
-                <span className={`save-indicator ${binarySaveState}`} title={storageError ?? undefined}>
-                  {binarySaveState === 'saving' ? <LoaderCircle size={14} /> : binarySaveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}
-                  {binarySaveState === 'saving' ? 'Збереження…' : binarySaveState === 'error' ? 'Помилка збереження' : binaryDirty ? 'Є незбережені зміни' : 'Збережено локально'}
-                </span>
-                <DocumentActions
-                  onDownload={() => {
-                    if (activeBinaryFormat === 'pdf' || activeBinaryFormat === 'image') downloadDocument(activeBinaryDocument.content, activeBinaryDocument.title);
-                    else setBinaryDownloadRequest(request => request + 1);
-                  }}
-                  onPrint={() => setBinaryPrintRequest(request => request + 1)}
-                />
-                <button className="icon-button delete-note-button" aria-label="Видалити документ" title="Видалити документ" onClick={() => void deleteActiveBinaryDocument()}><Trash2 size={16} /></button>
-                <button className="icon-button" aria-label="Закрити документ" title="Закрити документ" onClick={() => { if (canLeaveBinaryDocument()) setActiveBinaryDocument(null); }}><X size={16} /></button>
-              </div>
-            </div>
-            {activeBinaryFormat === 'pdf' ? (
-              <Suspense fallback={<div className="office-viewer-loading">Завантаження переглядача PDF…</div>}>
-                <PdfDocumentViewer document={activeBinaryDocument} printRequest={binaryPrintRequest} />
-              </Suspense>
-            ) : activeBinaryFormat === 'html' ? (
-              <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора HTML…</div>}>
-                <HtmlDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} printRequest={binaryPrintRequest} downloadRequest={binaryDownloadRequest} />
-              </Suspense>
-            ) : (
-              <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}>
-                <OfficeDocumentViewer document={activeBinaryDocument} onSave={saveBinaryDocument} onDirtyChange={setBinaryDirty} onError={error => setStorageError(error.message)} printRequest={binaryPrintRequest} downloadRequest={binaryDownloadRequest} />
-              </Suspense>
-            )}
-          </> : activeNote ? <>
-            <div className="document-header">
-              <div className="document-title-wrap">
-                <div className="breadcrumb">Нотатки <span>/</span> {activeTabRepository?.name ?? 'Репозиторій'}</div>
-                <input className="document-title-input" aria-label="Назва нотатки" value={activeNote.title} onChange={event => updateActiveNote({ title: event.target.value })} placeholder="Без назви" />
-              </div>
-              <div className="document-actions">
-                <span className={`save-indicator ${saveState}`} title={storageError ?? saveLabel}>
-                  {saveState === 'saving' ? <LoaderCircle size={14} /> : saveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}{saveLabel}
-                </span>
-                <DocumentActions
-                  onDownload={() => downloadDocument(new Blob([activeNote.content], { type: 'text/markdown;charset=utf-8' }), `${activeNote.title || 'Без назви'}.md`)}
-                  onPrint={() => {
-                    void printMarkdownDocument(activeNote.content, activeNote.title || 'Без назви')
-                      .catch(error => setStorageError(error instanceof Error ? error.message : 'Не вдалося надрукувати нотатку.'));
-                  }}
-                />
-                {!remoteAllowed && <span className="local-only-indicator" title="Віддалені Git-операції для цього репозиторію вимкнені"><LockKeyhole size={13} />Локально</span>}
-                <button className="icon-button delete-note-button" aria-label="Видалити нотатку" title="Видалити нотатку" onClick={() => void deleteActiveNote()}><Trash2 size={16} /></button>
-                <button className="attachment-button" disabled title="Вкладення будуть додані окремим модулем"><Paperclip size={16} />Вкладені файли</button>
-              </div>
-            </div>
-            <EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} />
-          </> : <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
+          </div>
+          {activeBinaryDocument && activeBinaryUi && <div className="document-header"><div className="document-title-wrap"><div className="breadcrumb">Документи <span>/</span> Локальний робочий простір</div><div className="document-title-text">{activeBinaryDocument.title}</div></div><div className="document-actions">
+            <span className={`save-indicator ${activeBinaryUi.saveState}`} title={storageError ?? undefined}>{activeBinaryUi.saveState === 'saving' ? <LoaderCircle size={14} /> : activeBinaryUi.saveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}{activeBinaryUi.saveState === 'saving' ? 'Збереження…' : activeBinaryUi.saveState === 'error' ? 'Помилка збереження' : activeBinaryUi.dirty ? 'Є незбережені зміни' : 'Збережено локально'}</span>
+            <DocumentActions onDownload={() => { if (activeBinaryFormat === 'pdf' || activeBinaryFormat === 'image') downloadDocument(activeBinaryDocument.content, activeBinaryDocument.title); else setBinaryUiState(current => { const state = current[activeBinaryDocument.id] ?? activeBinaryUi; return { ...current, [activeBinaryDocument.id]: { ...state, downloadRequest: state.downloadRequest + 1 } }; }); }} onPrint={() => setBinaryUiState(current => { const state = current[activeBinaryDocument.id] ?? activeBinaryUi; return { ...current, [activeBinaryDocument.id]: { ...state, printRequest: state.printRequest + 1 } }; })} />
+            <button className="icon-button delete-note-button" aria-label="Видалити документ" title="Видалити документ" onClick={() => void deleteActiveBinaryDocument()}><Trash2 size={16} /></button>
+          </div></div>}
+          {activeNote && <div className="document-header"><div className="document-title-wrap"><div className="breadcrumb">Нотатки <span>/</span> {activeTabRepository?.name ?? 'Репозиторій'}</div><input className="document-title-input" aria-label="Назва нотатки" value={activeNote.title} onChange={event => updateActiveNote({ title: event.target.value })} placeholder="Без назви" /></div><div className="document-actions">
+            <span className={`save-indicator ${saveState}`} title={storageError ?? saveLabel}>{saveState === 'saving' ? <LoaderCircle size={14} /> : saveState === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}{saveLabel}</span>
+            <DocumentActions onDownload={() => downloadDocument(new Blob([activeNote.content], { type: 'text/markdown;charset=utf-8' }), `${activeNote.title || 'Без назви'}.md`)} onPrint={() => { void printMarkdownDocument(activeNote.content, activeNote.title || 'Без назви').catch(error => setStorageError(error instanceof Error ? error.message : 'Не вдалося надрукувати нотатку.')); }} />
+            {!remoteAllowed && <span className="local-only-indicator" title="Віддалені Git-операції для цього репозиторію вимкнені"><LockKeyhole size={13} />Локально</span>}<button className="icon-button delete-note-button" aria-label="Видалити нотатку" title="Видалити нотатку" onClick={() => void deleteActiveNote()}><Trash2 size={16} /></button><button className="attachment-button" disabled title="Вкладення будуть додані окремим модулем"><Paperclip size={16} />Вкладені файли</button>
+          </div></div>}
+          <div className="workspace-document-stack">
+            {workspace?.tabs.filter(tab => workspaceTabDocumentType(tab) === 'binary').map(tab => {
+              const documentId = workspaceTabDocumentId(tab); const document = binaryDocumentRecords[documentId]; if (!document) return null;
+              const format = detectDocumentFormat(document.title, document.mediaType).id;
+              const ui = binaryUiState[documentId] ?? { dirty: false, saveState: 'saved' as SaveState, printRequest: 0, downloadRequest: 0 };
+              const active = tab.id === workspace.activeTabId; const save = (content: Blob) => saveBinaryDocument(documentId, content);
+              const dirty = (value: boolean) => setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? ui), dirty: value } }));
+              const error = (value: Error) => setStorageError(value.message);
+              return <div key={tab.id} className="workspace-document-panel" style={{ display: active ? 'flex' : 'none' }} aria-hidden={!active}>
+                {format === 'pdf' ? <Suspense fallback={<div className="office-viewer-loading">Завантаження переглядача PDF…</div>}><PdfDocumentViewer document={document} printRequest={ui.printRequest} /></Suspense>
+                  : format === 'html' ? <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора HTML…</div>}><HtmlDocumentViewer document={document} onSave={save} onDirtyChange={dirty} onError={error} printRequest={ui.printRequest} downloadRequest={ui.downloadRequest} /></Suspense>
+                    : <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}><OfficeDocumentViewer document={document} onSave={save} onDirtyChange={dirty} onError={error} printRequest={ui.printRequest} downloadRequest={ui.downloadRequest} /></Suspense>}
+              </div>;
+            })}
+            {activeNote && <div className="workspace-document-panel"><EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} /></div>}
+            {!activeNote && !activeBinaryDocument && <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
+          </div>
         </section>
       </div>
     </main>

@@ -96,7 +96,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - WorkspaceManager separates registered repositories, globally open tabs, active-tab selection and active repository.
 - Local workspace repository is registered by the app.
 - Workspace snapshots are persisted in Dexie.
-- The UI currently works with the local workspace only; multi-repository UI and remote loading are not implemented.
+- The UI currently works with the local workspace only; Markdown notes and binary documents now share one format-neutral tab strip. Multi-repository UI and remote loading are not implemented.
 - Remote capability checks exist in the domain model, but there is no GitHub transport to execute remote operations.
 
 ## Current automated quality gates
@@ -183,7 +183,7 @@ Only after editor and local workspace foundations are ready:
 ## Known limitations and cautions
 
 - The visible UI is still a flat notes list, not the VFS tree.
-- The initial document import/open workflow currently lists binary documents separately from Markdown notes; the full navigable VFS tree and shared multi-format tab model are not implemented.
+- The initial document import/open workflow still lists notes and binary documents in separate sidebar groups, but both use one shared tab strip. Open binary viewers remain mounted while inactive, preserving their editor/controller/iframe state. The full navigable VFS tree and a general format-handler/opening contract are not implemented.
 - Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF is read-only and relies on browser-native PDF support.
 - Local VFS operations exist as a storage/domain service; they are not yet exposed as normal user-facing file manager workflows.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.

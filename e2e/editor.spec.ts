@@ -1032,3 +1032,28 @@ test('imports PDF into the dedicated read-only viewer and downloads the original
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('2026-sample.pdf');
 });
+
+
+test('keeps multiple format viewers mounted and restores HTML editor state when switching tabs', async ({ page }) => {
+  const paragraphs = Array.from({ length: 90 }, (_, index) => '<p>Persistent HTML section ' + (index + 1) + ' with enough content to occupy the rendered document.</p>').join('\n');
+  const html = '<!doctype html><html><head><meta charset="utf-8"></head><body>' + paragraphs + '</body></html>';
+  await importOfficeFile(page, 'Persistent.html', 'text/html', Buffer.from(html));
+  await expect(page.getByTestId('html-document-viewer')).toBeVisible();
+  await importOfficeFile(page, 'Persistent.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', makeDocxFixture());
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await page.getByRole('tab', { name: 'Persistent.html', exact: true }).click();
+  await page.getByTestId('de-code-toggle').click();
+  const source = page.locator('.html-document-viewer .de-src-scroll');
+  await expect(source).toBeVisible();
+  await source.evaluate(element => { element.scrollTop = Math.min(240, element.scrollHeight - element.clientHeight); element.dispatchEvent(new Event('scroll')); });
+  const savedScrollTop = await source.evaluate(element => element.scrollTop);
+  expect(savedScrollTop).toBeGreaterThan(0);
+  await page.getByRole('tab', { name: 'Persistent.docx', exact: true }).click();
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await expect(page.getByTestId('html-document-viewer')).toBeHidden();
+  await expect(page.getByTestId('html-document-viewer')).toHaveCount(1);
+  await page.getByRole('tab', { name: 'Persistent.html', exact: true }).click();
+  await expect(page.getByTestId('html-document-viewer')).toBeVisible();
+  await expect.poll(() => source.evaluate(element => element.scrollTop)).toBeGreaterThan(savedScrollTop * 0.8);
+  await expect(page.getByTestId('office-document-viewer')).toBeHidden();
+});

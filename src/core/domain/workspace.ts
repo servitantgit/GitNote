@@ -8,13 +8,26 @@ export interface WorkspaceRepository {
   lastKnownHead?: string;
 }
 
+export type WorkspaceDocumentType = 'note' | 'binary';
+
 export interface WorkspaceTab {
   id: string;
   repositoryId: string;
   branch: string;
-  noteId: string;
+  /** Format-neutral identity. Legacy snapshots may contain noteId only. */
+  documentType?: WorkspaceDocumentType;
+  documentId?: string;
+  noteId?: string;
   title: string;
   openedAt: number;
+}
+
+export function workspaceTabDocumentType(tab: WorkspaceTab): WorkspaceDocumentType {
+  return tab.documentType ?? (tab.noteId ? 'note' : 'binary');
+}
+
+export function workspaceTabDocumentId(tab: WorkspaceTab): string {
+  return tab.documentId ?? tab.noteId ?? '';
 }
 
 export interface WorkspaceSnapshot {
@@ -34,7 +47,7 @@ export class WorkspaceManager {
   constructor(snapshot?: WorkspaceSnapshot) {
     if (!snapshot) return;
     this.repositories = new Map(snapshot.repositories.map(repository => [repository.id, repository]));
-    this.tabs = [...snapshot.tabs];
+    this.tabs = snapshot.tabs.map(tab => ({ ...tab, documentType: workspaceTabDocumentType(tab), documentId: workspaceTabDocumentId(tab) }));
     this.activeRepositoryId = snapshot.activeRepositoryId;
     this.activeTabId = snapshot.activeTabId;
     this.normalize();
@@ -58,13 +71,13 @@ export class WorkspaceManager {
     if (!this.repositories.has(tab.repositoryId)) throw new Error(`Unknown repository: ${tab.repositoryId}`);
     const existing = this.tabs.find(item => item.id === tab.id);
     if (existing) {
-      if (existing.repositoryId !== tab.repositoryId || existing.noteId !== tab.noteId) {
+      if (existing.repositoryId !== tab.repositoryId || workspaceTabDocumentType(existing) !== workspaceTabDocumentType(tab) || workspaceTabDocumentId(existing) !== workspaceTabDocumentId(tab)) {
         throw new Error('A tab ID cannot be reused for a different document.');
       }
       this.activeTabId = existing.id;
       return;
     }
-    this.tabs.push(tab);
+    this.tabs.push({ ...tab, documentType: workspaceTabDocumentType(tab), documentId: workspaceTabDocumentId(tab) });
     this.activeTabId = tab.id;
   }
 
