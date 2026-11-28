@@ -19,7 +19,7 @@ export function WorkspaceCreateMenu({ onCreateNote, onCreateOffice, disabled = f
       </summary>
       <div className="create-menu-popover" role="menu" aria-label="Створити документ">
         <button type="button" role="menuitem" disabled={disabled} onClick={event => { closeMenu(event); onCreateNote(); }}>
-          <FileText size={16} color="#4385D1" />Нотатку Markdown
+          <FileText size={16} color="#4385D1" />Створити нотатку
         </button>
         <button type="button" role="menuitem" disabled={disabled} onClick={event => { closeMenu(event); onCreateOffice('docx'); }}>
           <FileType size={16} color="#3478C8" />Документ Word (.docx)
