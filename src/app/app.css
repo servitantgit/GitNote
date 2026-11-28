@@ -25,3 +25,12 @@
 .binary-document-header{min-height:40px;padding:4px clamp(12px,3vw,32px);justify-content:flex-end;gap:8px}
 .binary-document-header .document-actions{min-height:32px;gap:6px}
 .binary-document-header .save-indicator{font-size:11px}
+
+.create-menu{position:relative;display:flex}
+.create-menu>summary{list-style:none;cursor:pointer}
+.create-menu>summary::-webkit-details-marker{display:none}
+.create-menu[open]>summary{background:var(--hover);color:var(--text)}
+.create-menu-popover{position:absolute;z-index:20;top:calc(100% + 6px);left:0;min-width:224px;padding:5px;border:1px solid var(--border);border-radius:9px;background:var(--panel);box-shadow:0 10px 28px #0002;display:flex;flex-direction:column;gap:2px}
+.create-menu-popover button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--text);font:inherit;font-size:12px;text-align:left;cursor:pointer}
+.create-menu-popover button:hover{background:var(--hover)}
+.create-menu-popover button svg{flex:none}
