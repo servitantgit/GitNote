@@ -49,3 +49,7 @@
 
 .source-editor .cm-search-match{background:color-mix(in srgb,var(--accent) 22%,transparent);border-radius:2px}
 .source-editor .cm-search-match-current{background:color-mix(in srgb,var(--accent) 42%,transparent);outline:1px solid color-mix(in srgb,var(--accent) 72%,transparent);border-radius:2px}
+
+/* Keep CodeMirror and both Live panes aligned with the selected application theme. */
+.source-editor .cm-editor,.source-editor .cm-scroller{background:var(--panel);color:var(--text)}
+.markdown-preview{background:var(--panel)}
