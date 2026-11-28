@@ -157,7 +157,7 @@ function makePptxFixture(): Buffer {
 
 async function createNoteFromMenu(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Створити' }).click();
-  await page.getByRole('button', { name: 'Створити нотатку' }).click();
+  await page.locator('.create-menu-popover button').filter({ hasText: 'Створити нотатку' }).click();
 }
 
 async function importOfficeFile(page: import('@playwright/test').Page, name: string, mimeType: string, buffer: Buffer) {
@@ -252,7 +252,7 @@ test('creates blank DOCX, XLSX and PPTX files in the workspace', async ({ page }
   ];
   for (const item of cases) {
     await page.getByRole('button', { name: 'Створити' }).click();
-    await page.getByRole('button', { name: item.label }).click();
+    await page.locator('.create-menu-popover button').filter({ hasText: item.label }).click();
     await expect(page.getByRole('tab', { name: item.name })).toBeVisible();
     await expect(page.getByRole('button', { name: item.name })).toBeVisible();
     await expect(page.getByTestId('office-document-viewer').last()).toBeVisible();
