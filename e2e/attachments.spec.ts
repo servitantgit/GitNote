@@ -37,7 +37,7 @@ test('deleting a note removes its owned attachments', async ({ page }) => {
   const dialog = page.getByRole('dialog', { name: 'Вкладені файли' });
   await dialog.getByLabel('Файли для вкладення').setInputFiles({ name: 'owned.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([1, 2, 3, 4]) });
   await expect(dialog.getByTestId('attachment-item')).toHaveCount(1);
-  await dialog.getByRole('button', { name: 'Закрити' }).click();
+  await dialog.getByRole('button', { name: 'Закрити', exact: true }).click();
   page.once('dialog', dialogEvent => dialogEvent.accept());
   await page.getByRole('button', { name: 'Видалити нотатку' }).click();
   await expect(page.getByLabel('Назва нотатки')).toBeVisible();
