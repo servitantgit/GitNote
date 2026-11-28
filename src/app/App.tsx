@@ -233,6 +233,8 @@ export function App() {
     if (activeBinaryDocument?.id === id || !canLeaveBinaryDocument(id)) return;
     try {
       const document = await binaryDocumentSource.read(id);
+      setBinaryPrintRequest(0);
+      setBinaryDownloadRequest(0);
       setActiveBinaryDocument(document);
       setBinaryDirty(false);
       setBinarySaveState('saved');
@@ -261,6 +263,8 @@ export function App() {
       await workspaceFileSystem.createBinaryDocument(document, path);
       const [metas, stored] = await Promise.all([binaryDocumentSource.list(), binaryDocumentSource.read(document.id)]);
       setBinaryDocuments(metas);
+      setBinaryPrintRequest(0);
+      setBinaryDownloadRequest(0);
       setActiveBinaryDocument(stored);
       setBinaryDirty(false);
       setBinarySaveState('saved');

@@ -17,6 +17,7 @@ export function PdfDocumentViewer({ document, printRequest }: Props) {
     const nextUrl = URL.createObjectURL(document.content);
     setUrl(nextUrl);
     loadedRef.current = false;
+    pendingPrintRef.current = false;
     return () => URL.revokeObjectURL(nextUrl);
   }, [document.id, document.content]);
 
