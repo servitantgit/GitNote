@@ -64,6 +64,15 @@ describe('WorkspaceManager', () => {
     expect(workspace.getSnapshot().activeTabId).toBe(tabA.id);
   });
 
+  it('allows the last tab to close without selecting another tab', () => {
+    const workspace = new WorkspaceManager();
+    workspace.registerRepository(repoA);
+    workspace.openTab(tabA);
+    workspace.closeTab(tabA.id);
+    expect(workspace.getSnapshot().tabs).toEqual([]);
+    expect(workspace.getSnapshot().activeTabId).toBeNull();
+  });
+
   it('updates tab metadata without changing its repository context', () => {
     const workspace = new WorkspaceManager();
     workspace.registerRepository(repoA);
