@@ -1200,9 +1200,26 @@ test('searches all local Markdown notes, including notes whose tabs are closed',
 
 test('refreshes a Markdown search entry when content changes without a timestamp change', async ({ page }) => {
   await createNoteFromMenu(page);
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Без назви');
   await page.getByLabel('Назва нотатки').fill('Index refresh note');
   await page.locator('.cm-content').fill('Original indexed phrase');
   await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
+  await expect.poll(async () => page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const records = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const request = db.transaction('notes', 'readonly').objectStore('notes').getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return records.some(record =>
+      record.title === 'Index refresh note' && record.content === 'Original indexed phrase');
+  })).toBe(true);
 
   await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
   await page.getByLabel('Пошуковий запит').fill('Original indexed phrase');
