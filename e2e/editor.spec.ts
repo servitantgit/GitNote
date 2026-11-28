@@ -416,7 +416,7 @@ test('imports, edits, saves and restores a PPTX through IndexedDB', async ({ pag
 
 test('opens the workspace and initializes the local note', async ({ page }) => {
   await expect(page.getByText('GitNotes', { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Список нотаток' })).toBeVisible();
+  await expect(page.getByTestId('workspace-file-tree')).toBeVisible();
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
   await expect(page.getByRole('tab', { name: 'Source' })).toHaveAttribute('aria-selected', 'true');
 });
@@ -503,12 +503,12 @@ test('deletes a note after confirmation', async ({ page }) => {
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
   await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
   await page.getByLabel('Назва нотатки').fill('Note to delete');
-  await expect(page.getByRole('list', { name: 'Список нотаток' })).toContainText('Note to delete');
+  await expect(page.getByRole('tab', { name: 'Note to delete' })).toBeVisible();
 
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: 'Видалити нотатку' }).click();
 
-  await expect(page.getByRole('list', { name: 'Список нотаток' })).not.toContainText('Note to delete');
+  await expect(page.getByRole('tab', { name: 'Note to delete' })).toHaveCount(0);
 });
 
 test('restores each note editor state and undo history after switching tabs', async ({ page }) => {
