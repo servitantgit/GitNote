@@ -13,6 +13,7 @@
 - `src/app`: application shell, local note list, document tabs and workspace orchestration.
 - `src/modules/editor`: the Markdown editor module, using CodeMirror 6 with Source, Live (simultaneous 50/50 Source and rendered Preview) and Preview modes, Markdown formatting commands, selection-aware editing, reading statistics and document navigation. It is one format-specific editor, not the workspace's universal document surface.
 - `src/modules/documents/OfficeDocumentViewer.tsx`: browser-local Office and non-HTML document integration using the locally vendored engine source in `src/vendor/office-engine`; it receives a stored Blob and returns edited Blob content through the host save callback.
+- `src/vendor/office-engine`: GitNote-owned copy of the required office-engine runtime source, pinned to upstream `v0.18.0` / `d7126505a00a431529d479c11d8d3372aeaf6cd0`. Vite compiles this source as part of GitNote; there is no package, Git or network dependency on upstream.
 - `src/modules/documents/html`: HTML-specific adapter, constrained host sizing, and proportional bidirectional scroll synchronization between the engine's source editor and rendered document surface. This mechanism is deliberately isolated from Markdown's logical-line scroll coordinator.
 - `src/infrastructure/storage`: Dexie database, local `DocumentSource`, local `WorkspaceFileSystem`, draft and workspace stores.
 - `src/core/domain/document-source.ts`: transport-independent document metadata, synchronization state, source contract and attachment metadata.
@@ -84,3 +85,11 @@ These are planned boundaries, not claims that they are implemented.
 ## Markdown fenced-code syntax highlighting
 
 The Markdown CodeMirror 6 language extension registers Java and Python through `src/modules/editor/code-languages.ts`. Markdown fenced-code info strings (`java`, `python`, `py`, `python3`) select the corresponding Lezer language parser and syntax highlighting. These language packages are used only for highlighting; GitNotes does not expose language-specific completion, diagnostics, compilation or code execution. Language modules are dynamically imported when their fenced language is encountered. The rendered Preview uses `@lezer/highlight` with Lezer's shared token classes, so it does not introduce a second syntax-highlighting engine. Unsupported languages remain unhighlighted. No language-specific completion, diagnostics, compilation or code execution is provided.
+
+## Vendored Office engine boundary and updates
+
+The office-engine runtime source lives inside `src/vendor/office-engine` and is imported directly by GitNote's format adapters. This keeps the code required for Office document handling in the GitNote repository and removes the upstream npm package as a build/runtime dependency. React and React DOM are host-provided peer dependencies. Vite compiles the vendored TypeScript source; upstream package build tooling is not part of GitNote's build.
+
+The vendored directory contains only the runtime source needed by GitNote plus its provenance and license files. Do not import the upstream repository wholesale: its server-side `packages/convert`, Docker services, playground, examples, tests and development tooling are outside this integration boundary. Do not use a tarball, package dependency or automatic subtree/HEAD tracking for updates.
+
+Updates are selective and manual. Review upstream changes against GitNote's actual needs, import only relevant runtime changes, inspect dependency/API/license changes, and update `src/vendor/office-engine/UPSTREAM.md` with the exact source tag and commit. Keep GitNote-specific format adapters and scroll behavior in `src/modules/documents`, not in the upstream vendor copy. Every engine update must pass unit tests, the TypeScript/Vite production build and Chromium tests for DOCX, XLSX, PPTX and HTML.

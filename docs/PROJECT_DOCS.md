@@ -31,6 +31,8 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Tabs remain globally open. Inactive-repository tabs remain locally editable; remote operations are disabled until that repository is explicitly active.
 - No automatic commit, push or sync.
 - Note attachments are note-scoped, not stored in one shared global assets folder.
+- The Office engine is vendored as source inside GitNote; no upstream npm package, GitHub repository or runtime network access is required to build or run it.
+- Upstream engine updates are deliberate and selective. Do not automatically track upstream HEAD, add a package/git dependency, or import unrelated upstream repository components.
 
 
 ## Architecture maintenance principles
@@ -87,7 +89,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 - Removing a file/folder removes linked documents from local note storage.
 - Existing notes are migrated into a Notes directory with stable document IDs. Dexie schema version 6 adds a separate `binaryDocuments` table; the migration is additive and retains the existing gitnote-local database.
 - Binary workspace file storage preserves imported bytes as Blob records, separate from text notes. The sidebar can import supported Office and text/document formats into `Documents/`, list them, reopen them after reload, and remove them through the VFS.
-- `src/vendor/office-engine` contains the complete runtime TypeScript source from upstream `p10node/office-engine` tag `v0.18.0` (MIT), pinned to commit `d7126505a00a431529d479c11d8d3372aeaf6cd0`. GitNotes imports this local source directly; the npm package is not a dependency. The engine has no runtime dependencies of its own beyond the React/React DOM peer dependencies already provided by GitNotes. DOCX, XLSX and PPTX use the local engine; HTML uses a dedicated GitNotes adapter over the same engine, with separate proportional bidirectional scroll synchronization between its source pane and rendered document pane. GitNotes currently exposes DOCX, XLSX, PPTX, Markdown, HTML and SVG in its import picker and persists edited output through the `onSave` Blob callback. Legacy Office/OpenDocument and CSV/plain-text conversions are not exposed yet because the engine can save those formats under a different extension; GitNotes still needs atomic VFS path updates for format conversion. This is a format-specific adapter, not the shared document-opening contract for every format. Attachment metadata shape exists, but note-scoped attachment ownership/lifecycle and UI remain unimplemented.
+- `src/vendor/office-engine` contains the runtime TypeScript source required by GitNotes from upstream `p10node/office-engine` tag `v0.18.0` (MIT), pinned to commit `d7126505a00a431529d479c11d8d3372aeaf6cd0`. GitNotes imports and compiles this source directly; `@p10node/office-engine` is not an npm dependency, and neither build nor runtime requires access to the upstream GitHub repository or npm. React and React DOM are provided by GitNotes. DOCX, XLSX and PPTX use the local engine; HTML uses a dedicated GitNotes adapter over the same engine, with separate proportional bidirectional scroll synchronization between its source pane and rendered document pane. GitNotes currently exposes DOCX, XLSX, PPTX, Markdown, HTML and SVG in its import picker and persists edited output through the `onSave` Blob callback. Legacy Office/OpenDocument and CSV/plain-text conversions are not exposed yet because the engine can save those formats under a different extension; GitNotes still needs atomic VFS path updates for format conversion. This is a format-specific adapter, not the shared document-opening contract for every format. Attachment metadata shape exists, but note-scoped attachment ownership/lifecycle and UI remain unimplemented.
 
 ### Workspace model
 
@@ -157,9 +159,9 @@ The goal is format-appropriate experiences within one workspace, not a single Ma
 - [ ] Shared document-opening contract and format capability model (view, edit, import, export, print), without assuming every format supports every operation.
 - [x] Separate Blob-preserving IndexedDB storage for binary workspace documents, including atomic VFS registration, path updates and recursive deletion.
 - [ ] PDF viewer and defined PDF interaction scope.
-- [x] DOCX viewer and editing strategy: browser-local editing through `@p10node/office-engine`.
-- [x] XLSX viewer and editing strategy: browser-local editing through `@p10node/office-engine`.
-- [x] PPTX viewing/editing scope: browser-local editing through `@p10node/office-engine`.
+- [x] DOCX viewer and editing strategy: browser-local editing through the locally vendored office-engine source.
+- [x] XLSX viewer and editing strategy: browser-local editing through the locally vendored office-engine source.
+- [x] PPTX viewing/editing scope: browser-local editing through the locally vendored office-engine source.
 - [ ] Sandboxed HTML preview and HTML editing strategy.
 - [x] Initial filename/MIME format detection for common text, Office, PDF, media and archive types. Format-specific dispatch remains planned.
 - [ ] Lazy-load heavy viewers/editors and define import/export behavior per format.
@@ -196,3 +198,12 @@ Only after editor and local workspace foundations are ready:
 
 - CI run `45931056613` on commit `e99dc0e`: all three required jobs passed (Unit tests, Browser tests (Chromium), Production build). The v3 migration browser assertion was corrected to expect the normalized fallback path produced by the migration.
 - CI run `45942368099` on PR merge commit `fafedc6`: unit tests and production build passed; 14 of 15 Chromium tests passed. The per-note scroll-restoration test failed after switching away from and back to a note (expected scrollTop above 1549, received 7). The StrictMode coordinator-lifecycle hypothesis did not resolve it. CI run `45946180242` on PR merge commit `5696b3c`: unit tests and production build passed; 14 of 15 Chromium tests passed. The same test now failed earlier, on the first Source-to-Preview switch (Preview scrollTop remained 0). Trace/code inspection identified the cause: cleanup read the Source surface after React had hidden it; `isConnected` remained true, but its scroll offset had reset. The coordinator must not read any surface during detach and must retain the last scroll-event position. Preview DOM is keyed by document ID to prevent reuse across notes.
+
+## Vendored office-engine maintenance policy
+
+- The source in `src/vendor/office-engine` is the authoritative engine code used by GitNote. Do not replace it with an npm dependency, Git dependency, remote runtime import or build-time download.
+- The current baseline is upstream `p10node/office-engine` tag `v0.18.0`, commit `d7126505a00a431529d479c11d8d3372aeaf6cd0`, under the MIT license. Keep the upstream provenance and license files with the vendored code.
+- Updates are manual, selective and controlled. Review upstream releases/commits and import only changes that fix a relevant defect, address a security issue or provide a capability GitNote actually needs. Do not follow upstream `HEAD` automatically.
+- Do not import unrelated upstream components such as `packages/convert`, server/Docker services, playgrounds, examples, upstream tests or build infrastructure unless a separately approved GitNote requirement needs them.
+- For each update, record the exact upstream tag/commit in `src/vendor/office-engine/UPSTREAM.md`; inspect the changed files, dependency and license implications, and adapt only the required runtime source. Preserve GitNote-specific adapters and integration code outside the vendored engine.
+- Verify the production TypeScript/Vite build, unit tests and Chromium workflows for DOCX, XLSX, PPTX and HTML. A vendor update is complete only after all three required CI jobs pass for the resulting `main` commit.

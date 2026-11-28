@@ -21,6 +21,14 @@ GitNotes aims to combine a OneNote Online-style workspace for organizing notes a
 - Workspace repository registrations, active repository context and open tabs persist in IndexedDB.
 - Selecting a tab does not activate remote access for its repository; remote operations require explicit repository activation.
 - No GitHub authentication or remote repository operations are enabled yet.
+- Browser-local DOCX, XLSX and PPTX viewing/editing through the office-engine source vendored directly in this repository; HTML has a dedicated adapter over the same local engine.
+- The office engine is built from local TypeScript source. GitNote does not depend on the upstream npm package or fetch the engine from GitHub at build time or runtime.
+
+## Vendored Office engine
+
+GitNote includes the MIT-licensed runtime source of [`p10node/office-engine`](https://github.com/p10node/office-engine) in `src/vendor/office-engine`, pinned to upstream tag `v0.18.0` (commit `d7126505a00a431529d479c11d8d3372aeaf6cd0`). The application imports this source locally; `@p10node/office-engine` is not an npm dependency. React and React DOM are supplied by GitNote itself.
+
+This is intentional: the engine code needed by GitNote is part of this repository, so builds and application runtime do not depend on the upstream repository, npm package availability or a network connection. The upstream project is used only as a reference/source for deliberate, reviewed updates. Updates are selective rather than automatic; GitNote does not import the upstream repository wholesale or include its server-side conversion service, playground or development tooling. See [`src/vendor/office-engine/UPSTREAM.md`](src/vendor/office-engine/UPSTREAM.md) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for provenance and license details.
 
 ## Quality checks
 
