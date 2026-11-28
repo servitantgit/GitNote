@@ -27,24 +27,13 @@ async function listWorkspaceTree(parentPath = ''): Promise<WorkspaceFileNode[]> 
   return [...children, ...nested.flat()];
 }
 
-async function ensureWorkspaceFolder(name: string): Promise<void> {
-  const nodes = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
-  if (nodes.some(node => node.kind === 'folder' && node.name === name)) return;
-  try {
-    await workspaceFileSystem.createFolder(LOCAL_REPOSITORY_ID, '', name);
-  } catch (error) {
-    const refreshed = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
-    if (!refreshed.some(node => node.kind === 'folder' && node.name === name)) throw error;
-  }
-}
-
 const OfficeDocumentViewer = lazy(() => import('../modules/documents/OfficeDocumentViewer').then(module => ({ default: module.OfficeDocumentViewer })));
 const HtmlDocumentViewer = lazy(() => import('../modules/documents/html/HtmlDocumentViewer').then(module => ({ default: module.HtmlDocumentViewer })));
 const PdfDocumentViewer = lazy(() => import('../modules/documents/PdfDocumentViewer').then(module => ({ default: module.PdfDocumentViewer })));
 
 type SaveState = 'loading' | 'saved' | 'saving' | 'error';
 
-function makeNote(title = 'Без назви', content = '', parentPath = 'Notes'): DocumentRecord {
+function makeNote(title = 'Без назви', content = '', parentPath = ''): DocumentRecord {
   const now = Date.now();
   const id = crypto.randomUUID();
   return { id, repositoryId: LOCAL_REPOSITORY_ID, title, content, path: parentPath ? `${parentPath}/${id}.md` : `${id}.md`, syncState: 'local', createdAt: now, updatedAt: now };
@@ -125,7 +114,6 @@ export function App() {
           workspaceStore.get(),
           binaryDocumentSource.list(),
         ]);
-        await Promise.all(['Notes', 'Documents'].map(ensureWorkspaceFolder));
         let storedNotes = await Promise.all(documentMetas.map(async meta => ({
           ...meta,
           ...await documentSource.read(meta.id),
