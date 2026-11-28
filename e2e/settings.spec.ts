@@ -34,6 +34,11 @@ test('persists appearance and editor preferences across reload', async ({ page }
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.mode-switch [data-mode="live"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.editor-frame')).toHaveCSS('--editor-font-size', '16px');
+  await expect(page.locator('.cm-editor')).toHaveCSS('background-color', 'rgb(32, 38, 48)');
+  await expect(page.locator('.cm-editor')).toHaveCSS('color', 'rgb(231, 235, 241)');
+  await expect(page.locator('.markdown-preview')).toHaveCSS('background-color', 'rgb(32, 38, 48)');
+  await page.locator('.mode-switch [data-mode="source"]').click();
+  await expect(page.locator('.cm-editor')).toHaveCSS('background-color', 'rgb(32, 38, 48)');
 });
 
 test('persists editor layout toggles and does not restore tabs when disabled', async ({ page }) => {
