@@ -34,7 +34,7 @@ export function normalizeWorkspacePath(path: string): string {
 
 export function validateWorkspaceName(name: string): string {
   const normalized = name.trim();
-  if (!normalized || normalized === '.' || normalized === '..' || /[\\/\\0]/.test(normalized)) {
+  if (!normalized || normalized === '.' || normalized === '..' || /[\/\\\0]/.test(normalized)) {
     throw new Error('A file or folder name must be a non-empty path segment.');
   }
   return normalized;
