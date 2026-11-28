@@ -1242,6 +1242,8 @@ test('refreshes a Markdown search entry when content changes without a timestamp
 
 test('finds a note by word prefixes and a small typo when exact search has no result', async ({ page }) => {
   await createNoteFromMenu(page);
+  await expect(page.getByRole('tab', { name: 'Без назви', exact: true })).toHaveCount(1);
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Без назви');
   await page.getByLabel('Назва нотатки').fill('Fuzzy search note');
   await page.locator('.cm-content').fill('Planning notes contain a unique phrase for this search test.');
   await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
