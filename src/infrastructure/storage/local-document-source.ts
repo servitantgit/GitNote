@@ -21,7 +21,7 @@ export class LocalIndexedDbDocumentSource implements MutableDocumentSource {
     if (baseSha !== undefined) note.baseSha = baseSha;
     // This adapter represents local storage, not a remote Git working tree.
     note.syncState = note.syncState === 'conflict' ? 'conflict' : 'local';
-    note.updatedAt = Date.now();
+    note.updatedAt = Math.max(Date.now(), note.updatedAt + 1);
     await database.notes.put(note);
     return {};
   }
@@ -38,7 +38,7 @@ export class LocalIndexedDbDocumentSource implements MutableDocumentSource {
     const note = await database.notes.get(id);
     if (!note) throw new Error(`Document not found: ${id}`);
     note.title = title;
-    note.updatedAt = Date.now();
+    note.updatedAt = Math.max(Date.now(), note.updatedAt + 1);
     await database.notes.put(note);
   }
 }
@@ -66,7 +66,7 @@ export class LocalIndexedDbBinaryDocumentSource implements BinaryDocumentSource 
     document.mediaType = content.type || document.mediaType;
     if (baseSha !== undefined) document.baseSha = baseSha;
     document.syncState = document.syncState === 'conflict' ? 'conflict' : 'local';
-    document.updatedAt = Date.now();
+    document.updatedAt = Math.max(Date.now(), document.updatedAt + 1);
     await database.binaryDocuments.put(document);
     return {};
   }

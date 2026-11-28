@@ -1196,6 +1196,50 @@ test('searches all local Markdown notes, including notes whose tabs are closed',
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Closed search note');
 });
 
+test('refreshes a Markdown search entry when content changes without a timestamp change', async ({ page }) => {
+  await createNoteFromMenu(page);
+  await page.getByLabel('Назва нотатки').fill('Index refresh note');
+  await page.locator('.cm-content').fill('Original indexed phrase');
+  await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
+
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Original indexed phrase');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('Index refresh note');
+  await page.getByRole('button', { name: 'Закрити пошук' }).click();
+
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = db.transaction('notes', 'readwrite');
+    const store = transaction.objectStore('notes');
+    const records = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const note = records.find(item => item.title === 'Index refresh note');
+    if (!note) throw new Error('Indexed Markdown note was not found.');
+    note.content = 'Replacement indexed phrase';
+    store.put(note); // Deliberately retain updatedAt to exercise content validation.
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted.'));
+    });
+    db.close();
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Replacement indexed phrase');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('Index refresh note');
+});
+
 test('searches text in imported DOCX documents', async ({ page }) => {
   await importOfficeFile(page, 'Search.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', makeDocxFixture());
   await expect(page.getByTestId('office-document-viewer')).toBeVisible();
@@ -1203,6 +1247,51 @@ test('searches text in imported DOCX documents', async ({ page }) => {
   await page.getByLabel('Пошуковий запит').fill('Original Word text');
   await page.getByRole('button', { name: 'Знайти' }).click();
   await expect(page.locator('.workspace-search-results button')).toContainText('Search.docx');
+});
+
+test('reuses the persisted DOCX search index after reload without re-reading the source Blob', async ({ page }) => {
+  await importOfficeFile(page, 'PersistedSearch.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', makeDocxFixture());
+  await expect(page.getByTestId('office-document-viewer')).toBeVisible();
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Original Word text');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('PersistedSearch.docx');
+
+  await page.getByRole('button', { name: 'Закрити пошук' }).click();
+  await page.locator('.document-tab.active .tab-close').click();
+  await page.reload();
+
+  // Keep the source timestamp unchanged but make its Blob unreadable. A valid
+  // result now proves that search reused the extracted text persisted in IDB.
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = db.transaction('binaryDocuments', 'readwrite');
+    const store = transaction.objectStore('binaryDocuments');
+    const records = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const record = records.find(item => item.title === 'PersistedSearch.docx');
+    if (!record) throw new Error('Persisted DOCX source record was not found.');
+    record.content = new Blob(['not a valid DOCX archive'], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    store.put(record);
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted.'));
+    });
+    db.close();
+  });
+
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('Original Word text');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  await expect(page.locator('.workspace-search-results button')).toContainText('PersistedSearch.docx');
 });
 
 test('searches cell values across imported XLSX worksheets', async ({ page }) => {

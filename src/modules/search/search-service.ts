@@ -176,7 +176,7 @@ async function syncSearchIndex(
 
   for (const note of notes) {
     const cached = await database.searchDocuments.get(note.id);
-    if (!cached || cached.documentType !== 'note' || cached.sourceUpdatedAt !== note.updatedAt) {
+    if (!cached || cached.documentType !== 'note' || cached.sourceUpdatedAt !== note.updatedAt || cached.text !== note.content) {
       await saveSearchDocument(note, 'note', 'markdown', note.content);
     } else if (cached.title !== note.title || cached.path !== note.path) {
       await database.searchDocuments.update(note.id, { title: note.title || 'Без назви', path: note.path });

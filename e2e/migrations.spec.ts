@@ -5,11 +5,13 @@ const repositoryId = 'local-workspace';
 
 async function seedLegacyDatabase(
   page: Page,
-  version: 1 | 2 | 3 | 4,
+  version: 1 | 2 | 3 | 4 | 6,
   data: {
     notes?: Array<Record<string, unknown>>;
     draft?: Record<string, unknown>;
     workspace?: Record<string, unknown>;
+    fileNodes?: Array<Record<string, unknown>>;
+    binaryDocuments?: Array<Record<string, unknown>>;
   } = {},
 ) {
   // IndexedDB is unavailable on about:blank because it has an opaque origin.
@@ -44,6 +46,29 @@ async function seedLegacyDatabase(
         workspaces.createIndex('updatedAt', 'updatedAt');
         if (data.workspace) workspaces.add(data.workspace);
       }
+      if (version >= 5) {
+        const nodes = db.createObjectStore('fileNodes', { keyPath: 'id' });
+        nodes.createIndex('repositoryId', 'repositoryId');
+        nodes.createIndex('[repositoryId+path]', ['repositoryId', 'path']);
+        nodes.createIndex('[repositoryId+parentPath]', ['repositoryId', 'parentPath']);
+        nodes.createIndex('[repositoryId+kind]', ['repositoryId', 'kind']);
+        nodes.createIndex('documentId', 'documentId');
+        for (const node of data.fileNodes ?? []) nodes.add(node);
+      }
+
+      if (version >= 6) {
+        const binaries = db.createObjectStore('binaryDocuments', { keyPath: 'id' });
+        for (const index of ['repositoryId', 'title', 'createdAt', 'updatedAt', 'path', 'syncState']) {
+          binaries.createIndex(index, index);
+        }
+        for (const document of data.binaryDocuments ?? []) {
+          binaries.add({
+            ...document,
+            content: new Blob(['legacy binary payload'], { type: String(document.mediaType ?? 'application/octet-stream') }),
+          });
+        }
+      }
+
       if (data.draft) drafts.add(data.draft);
     };
     request.onsuccess = () => {
@@ -66,20 +91,24 @@ async function readDatabase(page: Page) {
     drafts: Array<Record<string, unknown>>;
     notes: Array<Record<string, unknown>>;
     nodes: Array<Record<string, unknown>>;
+    binaryDocuments: Array<{ id: string; title: string; mediaType: string; contentSize: number }>;
+    searchIndex?: { count: number; indexes: Array<{ name: string; multiEntry: boolean }> };
     workspace?: Record<string, unknown>;
   }>((resolve, reject) => {
     const request = indexedDB.open(databaseName);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       const db = request.result;
-      const stores = ['drafts', 'notes', 'fileNodes', 'workspaces'].filter(name => db.objectStoreNames.contains(name));
+      const stores = ['drafts', 'notes', 'fileNodes', 'workspaces', 'binaryDocuments', 'searchDocuments'].filter(name => db.objectStoreNames.contains(name));
       const result: {
         nativeVersion: number;
         drafts: Array<Record<string, unknown>>;
         notes: Array<Record<string, unknown>>;
         nodes: Array<Record<string, unknown>>;
+        binaryDocuments: Array<{ id: string; title: string; mediaType: string; contentSize: number }>;
+        searchIndex?: { count: number; indexes: Array<{ name: string; multiEntry: boolean }> };
         workspace?: Record<string, unknown>;
-      } = { nativeVersion: db.version, drafts: [], notes: [], nodes: [] };
+      } = { nativeVersion: db.version, drafts: [], notes: [], nodes: [], binaryDocuments: [] };
       const transaction = db.transaction(stores, 'readonly');
       if (stores.includes('drafts')) transaction.objectStore('drafts').getAll().onsuccess = event => {
         result.drafts = (event.target as IDBRequest).result;
@@ -93,6 +122,22 @@ async function readDatabase(page: Page) {
       if (stores.includes('workspaces')) transaction.objectStore('workspaces').get('default').onsuccess = event => {
         result.workspace = (event.target as IDBRequest).result;
       };
+      if (stores.includes('binaryDocuments')) transaction.objectStore('binaryDocuments').getAll().onsuccess = event => {
+        result.binaryDocuments = ((event.target as IDBRequest).result as Array<Record<string, unknown>>).map(document => ({
+          id: String(document.id),
+          title: String(document.title),
+          mediaType: String(document.mediaType),
+          contentSize: (document.content as Blob).size,
+        }));
+      };
+      if (stores.includes('searchDocuments')) {
+        const store = transaction.objectStore('searchDocuments');
+        result.searchIndex = {
+          count: 0,
+          indexes: Array.from(store.indexNames).map(name => ({ name, multiEntry: store.index(name).multiEntry })),
+        };
+        store.count().onsuccess = event => { result.searchIndex!.count = (event.target as IDBRequest<number>).result; };
+      }
       transaction.oncomplete = () => {
         db.close();
         resolve(result);
@@ -101,6 +146,96 @@ async function readDatabase(page: Page) {
     };
   }), databaseName);
 }
+
+
+test('upgrades a version 6 database by adding the search index without changing existing data', async ({ page }) => {
+  const noteId = 'legacy-note-v6';
+  const binaryId = 'legacy-binary-v6';
+  await seedLegacyDatabase(page, 6, {
+    notes: [{
+      id: noteId,
+      repositoryId,
+      title: 'Version six note',
+      content: 'Existing Markdown content must survive',
+      path: 'Notes/version-six.md',
+      syncState: 'dirty',
+      baseSha: 'legacy-base-sha',
+      createdAt: 600,
+      updatedAt: 700,
+    }],
+    fileNodes: [
+      {
+        id: 'legacy-v6-note-node',
+        repositoryId,
+        path: 'Notes/version-six.md',
+        parentPath: 'Notes',
+        name: 'version-six.md',
+        kind: 'file',
+        documentId: noteId,
+        createdAt: 600,
+        updatedAt: 700,
+      },
+      {
+        id: 'legacy-v6-binary-node',
+        repositoryId,
+        path: 'Documents/keep.txt',
+        parentPath: 'Documents',
+        name: 'keep.txt',
+        kind: 'file',
+        documentId: binaryId,
+        createdAt: 610,
+        updatedAt: 710,
+      },
+    ],
+    binaryDocuments: [{
+      id: binaryId,
+      repositoryId,
+      title: 'keep.txt',
+      mediaType: 'text/plain',
+      size: 21,
+      syncState: 'clean',
+      createdAt: 610,
+      updatedAt: 710,
+      path: 'Documents/keep.txt',
+    }],
+  });
+
+  await page.goto('/');
+  await expect(page.getByLabel('Назва нотатки')).toHaveValue('Version six note');
+  const stored = await readDatabase(page);
+  expect(stored.nativeVersion).toBe(70);
+  expect(stored.notes).toContainEqual(expect.objectContaining({
+    id: noteId,
+    content: 'Existing Markdown content must survive',
+    path: 'Notes/version-six.md',
+    syncState: 'dirty',
+    baseSha: 'legacy-base-sha',
+  }));
+  expect(stored.nodes).toContainEqual(expect.objectContaining({
+    id: 'legacy-v6-note-node',
+    documentId: noteId,
+    path: 'Notes/version-six.md',
+  }));
+  expect(stored.nodes).toContainEqual(expect.objectContaining({
+    id: 'legacy-v6-binary-node',
+    documentId: binaryId,
+    path: 'Documents/keep.txt',
+  }));
+  expect(stored.binaryDocuments).toContainEqual(expect.objectContaining({
+    id: binaryId,
+    title: 'keep.txt',
+    mediaType: 'text/plain',
+    contentSize: 21,
+  }));
+  expect(stored.searchIndex).toEqual(expect.objectContaining({
+    count: 0,
+    indexes: expect.arrayContaining([
+      expect.objectContaining({ name: 'documentType', multiEntry: false }),
+      expect.objectContaining({ name: 'sourceUpdatedAt', multiEntry: false }),
+      expect.objectContaining({ name: 'grams', multiEntry: true }),
+    ]),
+  }));
+});
 
 test('upgrades a version 1 database without losing existing drafts', async ({ page }) => {
   await seedLegacyDatabase(page, 1, {
