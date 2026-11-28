@@ -61,7 +61,6 @@ function tabForBinary(document: Pick<BinaryDocumentRecord, 'id' | 'repositoryId'
 export function App() {
   const [mode, setMode] = useState<EditorMode>('source');
   const [notes, setNotes] = useState<DocumentRecord[]>([]);
-  const [binaryDocuments, setBinaryDocuments] = useState<Omit<BinaryDocumentRecord, 'content'>[]>([]);
   const [fileNodes, setFileNodes] = useState<WorkspaceFileNode[]>([]);
   const [selectedFolderPath, setSelectedFolderPath] = useState('');
   const [binaryDocumentRecords, setBinaryDocumentRecords] = useState<Record<string, BinaryDocumentRecord>>({});
@@ -160,7 +159,6 @@ export function App() {
           .map(tab => binaryDocumentSource.read(workspaceTabDocumentId(tab))));
         managerRef.current = manager;
         setNotes(nextNotes);
-        setBinaryDocuments(binaryMetas);
         setFileNodes(await listWorkspaceTree());
         setBinaryDocumentRecords(Object.fromEntries(openedBinary.map(document => [document.id, document])));
         setWorkspace(manager.getSnapshot());
@@ -242,12 +240,13 @@ export function App() {
     try {
       await workspaceFileSystem.createDocument(note, note.path!);
       setNotes(current => [note, ...current]);
+      await refreshFileNodes();
       openNote(note);
       setMode('source');
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося створити нотатку.');
     }
-  }, [openNote, saveState, selectedFolderPath]);
+  }, [openNote, refreshFileNodes, saveState, selectedFolderPath]);
 
   const createFolder = useCallback(async () => {
     const name = window.prompt('Назва нової папки');
@@ -302,7 +301,6 @@ export function App() {
       };
       await workspaceFileSystem.createBinaryDocument(document, path);
       const [metas, stored] = await Promise.all([binaryDocumentSource.list(), binaryDocumentSource.read(document.id)]);
-      setBinaryDocuments(metas);
       await refreshFileNodes();
       setBinaryDocumentRecords(current => ({ ...current, [document.id]: stored }));
       const manager = managerRef.current;
@@ -318,8 +316,6 @@ export function App() {
     setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 }), saveState: 'saving' } }));
     try {
       await binaryDocumentSource.write(documentId, content);
-      setBinaryDocuments(await binaryDocumentSource.list());
-      await refreshFileNodes();
       setBinaryUiState(current => ({ ...current, [documentId]: { ...(current[documentId] ?? { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 }), dirty: false, saveState: 'saved' } }));
       setStorageError(null);
     } catch (error) {
@@ -337,7 +333,6 @@ export function App() {
       else await binaryDocumentSource.remove(activeBinaryDocument.id);
       const manager = managerRef.current;
       manager?.closeTab(`binary:${activeBinaryDocument.id}`);
-      setBinaryDocuments(await binaryDocumentSource.list());
       setBinaryDocumentRecords(current => { const next = { ...current }; delete next[activeBinaryDocument.id]; return next; });
       setBinaryUiState(current => { const next = { ...current }; delete next[activeBinaryDocument.id]; return next; });
       if (manager) persistWorkspace(manager);
@@ -346,7 +341,7 @@ export function App() {
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Не вдалося видалити документ.');
     }
-  }, [activeBinaryDocument, persistWorkspace]);
+  }, [activeBinaryDocument, persistWorkspace, refreshFileNodes]);
 
   const closeTab = useCallback((tabId: string) => {
     const manager = managerRef.current;
