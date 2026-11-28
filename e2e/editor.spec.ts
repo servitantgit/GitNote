@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-
 function createStoredZip(entries: Record<string, string>): Buffer {
   const localParts: Buffer[] = [];
   const centralParts: Buffer[] = [];
@@ -92,7 +91,9 @@ async function importOfficeFile(page: import('@playwright/test').Page, name: str
 
 async function saveOfficeFile(page: import('@playwright/test').Page) {
   await expect(page.locator('.save-indicator')).toHaveText('Є незбережені зміни');
-  await page.locator('.de-ebar button[aria-label^="Save"]').first().click();
+  const saveButton = page.locator('button[aria-label^="Save"]').first();
+  await expect(saveButton).toBeVisible();
+  await saveButton.click();
   await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
 }
 
