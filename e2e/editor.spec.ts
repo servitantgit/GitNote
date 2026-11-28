@@ -214,14 +214,33 @@ test('closes the last tab without deleting the note and keeps the workspace tabl
   const tabs = page.locator('.document-tabs [role="tab"]');
   await expect(tabs).toHaveCount(1);
   const title = await tabs.first().innerText();
+
+  const readStoredWelcomeNote = () => page.evaluate(async expectedTitle => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gitnote-local');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return new Promise<boolean>((resolve, reject) => {
+      const transaction = db.transaction(['notes', 'fileNodes'], 'readonly');
+      const notesRequest = transaction.objectStore('notes').getAll();
+      const nodesRequest = transaction.objectStore('fileNodes').getAll();
+      transaction.oncomplete = () => {
+        const note = notesRequest.result.find((item: { title: string }) => item.title === expectedTitle);
+        resolve(Boolean(note && nodesRequest.result.some((node: { documentId?: string; kind: string }) => node.kind === 'file' && node.documentId === note.id)));
+      };
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }, title);
+
   await page.getByRole('button', { name: 'Закрити вкладку' }).click();
-  await expect(page.locator('.document-tabs [role="tab"]')).toHaveCount(0);
+  await expect(tabs).toHaveCount(0);
   await expect(page.locator('.workspace-document-panel')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: title })).toBeVisible();
+  expect(await readStoredWelcomeNote()).toBe(true);
 
   await page.reload();
-  await expect(page.getByRole('tab')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: title })).toBeVisible();
+  await expect(page.locator('.document-tabs [role="tab"]')).toHaveCount(0);
+  expect(await readStoredWelcomeNote()).toBe(true);
 });
 
 test('creates a folder and places a new note inside the selected folder', async ({ page }) => {
