@@ -16,6 +16,8 @@ function formatSize(bytes: number): string {
 
 export function NoteAttachmentsDialog({ noteId, noteTitle, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [attachments, setAttachments] = useState<DocumentAttachmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -30,10 +32,10 @@ export function NoteAttachmentsDialog({ noteId, noteTitle, onClose }: Props) {
     }).catch(cause => {
       if (!cancelled) setError(cause instanceof Error ? cause.message : 'Не вдалося завантажити вкладення.');
     }).finally(() => { if (!cancelled) setLoading(false); });
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onCloseRef.current(); };
     window.addEventListener('keydown', onKeyDown);
     return () => { cancelled = true; window.removeEventListener('keydown', onKeyDown); };
-  }, [noteId, onClose]);
+  }, [noteId]);
 
   async function addFiles(files: FileList | null) {
     if (!files?.length) return;
