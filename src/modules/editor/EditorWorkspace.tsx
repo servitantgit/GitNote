@@ -132,7 +132,7 @@ export function EditorWorkspace({
   const extensions = useMemo(() => [markdown({ codeLanguages }), markdownKeymap, EditorView.lineWrapping], []);
   useEffect(() => {
     if (mode !== 'preview' && mode !== 'live') {
-      setRendered('');
+      setRendered(null);
       return;
     }
     let active = true;
