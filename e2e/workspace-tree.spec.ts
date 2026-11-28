@@ -8,6 +8,8 @@ test('renames, moves by drag and drop, and recursively deletes workspace tree en
   await page.getByLabel('Створити папку').click();
   const treeA = page.getByRole('button', { name: 'Tree A', exact: true });
   await expect(treeA).toBeVisible();
+  const treeAEntry = page.locator('.file-tree-entry').filter({ has: treeA });
+  await expect(treeAEntry.locator('.file-tree-more')).toHaveCSS('opacity', '1');
 
   page.once('dialog', dialog => dialog.accept('Tree B'));
   await page.getByLabel('Створити папку').click();
@@ -22,8 +24,10 @@ test('renames, moves by drag and drop, and recursively deletes workspace tree en
   });
   const sample = page.getByRole('button', { name: 'sample.png', exact: true });
   await expect(sample).toBeVisible();
+  const sampleEntry = page.locator('.file-tree-entry').filter({ has: sample });
+  await expect(sampleEntry.locator('.file-tree-more')).toHaveCSS('opacity', '1');
 
-  await page.locator('.file-tree-entry').filter({ has: page.getByRole('button', { name: 'sample.png', exact: true }) }).locator('.file-tree-more').click();
+  await sampleEntry.locator('.file-tree-more').click();
   page.once('dialog', dialog => dialog.accept('renamed.png'));
   await page.getByRole('menuitem', { name: 'Перейменувати' }).click();
   const renamed = page.getByRole('button', { name: 'renamed.png', exact: true });
