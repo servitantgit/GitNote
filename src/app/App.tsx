@@ -1,7 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorState } from '@codemirror/state';
 import type { DocumentScrollPosition } from '../modules/editor/navigation/scroll-position';
-import { GitBranch, Paperclip, Search, Settings, Plus, FolderPlus, Upload, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
+import { GitBranch, Paperclip, Search, Settings, FolderPlus, Upload, PanelLeftClose, Trash2, Check, AlertCircle, LoaderCircle, X, LockKeyhole } from 'lucide-react';
+import { WorkspaceCreateMenu } from '../modules/workspace/WorkspaceCreateMenu';
+import { createOfficeDocumentBlob, type OfficeDocumentKind } from '../modules/documents/create-office-document';
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
 import { workspaceStore } from '../infrastructure/storage/database';
@@ -248,6 +250,43 @@ export function App() {
     }
   }, [openNote, refreshFileNodes, saveState, selectedFolderPath]);
 
+  const createOfficeDocument = useCallback(async (kind: OfficeDocumentKind) => {
+    if (saveState === 'loading') return;
+    const definitions: Record<OfficeDocumentKind, { mediaType: string }> = {
+      docx: { mediaType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+      xlsx: { mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      pptx: { mediaType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+    };
+    try {
+      const targetFolder = selectedFolderPath || 'Documents';
+      const definition = definitions[kind];
+      const existing = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID, targetFolder);
+      const occupied = new Set(existing.map(node => node.name.toLocaleLowerCase()));
+      const extension = '.' + kind;
+      const stem = 'Без назви';
+      let title = stem + extension;
+      for (let suffix = 2; occupied.has(title.toLocaleLowerCase()); suffix += 1) title = stem + ' (' + suffix + ')' + extension;
+      const content = await createOfficeDocumentBlob(kind);
+      const now = Date.now();
+      const document: BinaryDocumentRecord = {
+        id: crypto.randomUUID(), repositoryId: LOCAL_REPOSITORY_ID, title,
+        path: targetFolder ? targetFolder + '/' + title : title,
+        content, mediaType: content.type || definition.mediaType, size: content.size,
+        syncState: 'local', createdAt: now, updatedAt: now,
+      };
+      await workspaceFileSystem.createBinaryDocument(document, document.path!);
+      const stored = await binaryDocumentSource.read(document.id);
+      await refreshFileNodes();
+      setBinaryDocumentRecords(current => ({ ...current, [stored.id]: stored }));
+      setBinaryUiState(current => ({ ...current, [stored.id]: { dirty: false, saveState: 'saved', printRequest: 0, downloadRequest: 0 } }));
+      const manager = managerRef.current;
+      if (manager) { manager.openTab(tabForBinary(stored)); persistWorkspace(manager); }
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося створити Office-документ.');
+    }
+  }, [persistWorkspace, refreshFileNodes, saveState, selectedFolderPath]);
+
   const createFolder = useCallback(async () => {
     const name = window.prompt('Назва нової папки');
     if (!name) return;
@@ -438,7 +477,7 @@ export function App() {
           <div className="sidebar-heading workspace-tree-heading">
             <span>РОБОЧИЙ ПРОСТІР</span>
             <div className="sidebar-tree-actions">
-              <button className="icon-button" aria-label="Створити нотатку" title="Створити нотатку в обраній папці" onClick={createNote} disabled={saveState === 'loading'}><Plus size={16} /></button>
+              <WorkspaceCreateMenu onCreateNote={() => void createNote()} onCreateOffice={kind => void createOfficeDocument(kind)} disabled={saveState === 'loading'} />
               <button className="icon-button" aria-label="Створити папку" title="Створити вкладену папку" onClick={() => void createFolder()} disabled={saveState === 'loading'}><FolderPlus size={16} /></button>
               <button className="icon-button" aria-label="Імпортувати документ" title="Імпортувати файл в обрану папку" onClick={() => fileInputRef.current?.click()} disabled={saveState === 'loading'}><Upload size={16} /></button>
             </div>
