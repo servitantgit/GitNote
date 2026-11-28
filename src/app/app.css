@@ -40,3 +40,22 @@
 .app-shell.density-compact .sidebar{padding-top:12px;padding-bottom:12px}
 .app-shell.density-compact .file-tree-row{padding-top:5px;padding-bottom:5px}
 .app-shell.density-compact .document-tab>button:first-child{padding-top:6px;padding-bottom:5px}
+
+.file-tree-entry{position:relative;display:flex;align-items:center;min-width:0;border-radius:6px}
+.file-tree-entry>.file-tree-row{flex:1}
+.file-tree-entry.drop-target{outline:1px solid var(--accent);background:var(--selected)}
+.file-tree-more{display:grid;place-items:center;flex:none;width:25px;height:27px;margin-right:2px;border:0;border-radius:5px;background:transparent;color:var(--muted);opacity:0;cursor:pointer}
+.file-tree-entry:hover>.file-tree-more,.file-tree-more:focus-visible,.file-tree-more[aria-expanded=true]{opacity:1}
+.file-tree-more:hover,.file-tree-more[aria-expanded=true]{background:var(--hover);color:var(--text)}
+.file-tree-menu{position:absolute;z-index:30;top:calc(100% + 3px);right:2px;width:210px;padding:5px;border:1px solid var(--border);border-radius:8px;background:var(--panel);box-shadow:0 10px 28px #0003;display:flex;flex-direction:column;gap:3px}
+.file-tree-menu>button,.file-tree-move>button{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;border:0;border-radius:5px;background:transparent;color:var(--text);font:inherit;font-size:12px;text-align:left;cursor:pointer}
+.file-tree-menu>button:hover,.file-tree-move>button:hover{background:var(--hover)}
+.file-tree-menu button:disabled{opacity:.45;cursor:not-allowed}
+.file-tree-menu .danger{color:#c44}
+.file-tree-menu-close{border-top:1px solid var(--border)!important;border-radius:0!important;margin-top:2px}
+.file-tree-move{display:flex;flex-direction:column;gap:5px;padding:7px 8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.file-tree-move label{color:var(--muted);font-size:11px}
+.file-tree-move select{width:100%;min-width:0;padding:6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font:inherit;font-size:11px}
+.file-tree-move>button{justify-content:center;background:var(--selected)}
+.file-tree-drop-indicator{position:absolute;right:9px;color:var(--accent);pointer-events:none}
+@media(max-width:700px){.file-tree-more{opacity:1;width:30px;height:32px}.file-tree-menu{right:0;width:min(220px,75vw)}}

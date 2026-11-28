@@ -14,7 +14,7 @@ import type { BinaryDocumentRecord, DocumentRecord } from '../core/domain/docume
 import { binaryDocumentSource, documentSource } from '../infrastructure/storage/local-document-source';
 import { workspaceFileSystem } from '../infrastructure/storage/local-workspace-file-system';
 import { resolveLocalWorkspaceImage } from '../infrastructure/storage/local-workspace-image-resolver';
-import { validateWorkspaceName, type WorkspaceFileNode } from '../core/domain/workspace-file-system';
+import { parentWorkspacePath, validateWorkspaceName, workspacePathName, type WorkspaceFileNode } from '../core/domain/workspace-file-system';
 import { WorkspaceFileTree } from '../modules/workspace/WorkspaceFileTree';
 import { detectDocumentFormat } from '../core/domain/document-format';
 import { DocumentActions } from '../modules/documents/DocumentActions';
@@ -47,6 +47,16 @@ async function ensureWorkspaceFolder(name: string): Promise<void> {
     const refreshed = await workspaceFileSystem.list(LOCAL_REPOSITORY_ID);
     if (!refreshed.some(node => node.kind === 'folder' && node.name === name)) throw error;
   }
+}
+
+function isPathWithin(path: string, parentPath: string): boolean {
+  return path === parentPath || path.startsWith(parentPath + '/');
+}
+
+function buildPathChanges(nodes: WorkspaceFileNode[], previousPath: string, nextPath: string): Map<string, string> {
+  return new Map(nodes
+    .filter(node => isPathWithin(node.path, previousPath))
+    .map(node => [node.path, nextPath + node.path.slice(previousPath.length)]));
 }
 
 const OfficeDocumentViewer = lazy(() => import('../modules/documents/OfficeDocumentViewer').then(module => ({ default: module.OfficeDocumentViewer })));
@@ -346,6 +356,138 @@ export function App() {
     }
   }, [refreshFileNodes, selectedFolderPath]);
 
+  const flushPendingNoteSaves = useCallback(async () => {
+    if (saveState === 'saving') throw new Error('Дочекайтеся завершення поточного збереження.');
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    const pending = notes.filter(note => dirtyNoteIds.current.has(note.id) || dirtyTitleNoteIds.current.has(note.id));
+    if (pending.length === 0) return;
+    setSaveState('saving');
+    await Promise.all(pending.map(async note => {
+      if (dirtyNoteIds.current.has(note.id)) await documentSource.write(note.id, note.content, note.baseSha);
+      if (dirtyTitleNoteIds.current.has(note.id)) await documentSource.rename(note.id, note.title);
+    }));
+    for (const note of pending) {
+      dirtyNoteIds.current.delete(note.id);
+      dirtyTitleNoteIds.current.delete(note.id);
+    }
+    setSaveState('saved');
+  }, [notes, saveState]);
+
+  const refreshAfterRelocation = useCallback(async (pathChanges: Map<string, string>) => {
+    const metadata = await documentSource.list();
+    const refreshedNotes = await Promise.all(metadata.map(async meta => ({
+      ...meta,
+      ...await documentSource.read(meta.id),
+    })));
+    setNotes(refreshedNotes);
+    const manager = managerRef.current;
+    for (const document of Object.values(binaryDocumentRecords)) {
+      const nextPath = document.path ? pathChanges.get(document.path) : undefined;
+      if (nextPath && manager?.getSnapshot().tabs.some(tab => tab.id === `binary:${document.id}`)) {
+        manager.updateTab(`binary:${document.id}`, { title: workspacePathName(nextPath) });
+      }
+    }
+    setBinaryDocumentRecords(current => Object.fromEntries(Object.entries(current).map(([id, document]) => {
+      const nextPath = document.path ? pathChanges.get(document.path) : undefined;
+      return nextPath
+        ? [id, { ...document, path: nextPath, title: workspacePathName(nextPath) }]
+        : [id, document];
+    })));
+    setSelectedFolderPath(current => pathChanges.get(current) ?? current);
+    await refreshFileNodes();
+    if (manager) persistWorkspace(manager);
+  }, [binaryDocumentRecords, persistWorkspace, refreshFileNodes]);
+
+  const renameTreeNode = useCallback(async (node: WorkspaceFileNode) => {
+    const entered = window.prompt(`Нова назва для «${node.name}»`, node.name);
+    if (entered === null) return;
+    try {
+      let name = validateWorkspaceName(entered);
+      const isMarkdownNote = Boolean(node.documentId && notes.some(note => note.id === node.documentId));
+      if (isMarkdownNote) {
+        const extension = name.includes('.') ? name.slice(name.lastIndexOf('.')).toLowerCase() : '';
+        if (extension && extension !== '.md') throw new Error('Файл нотатки має залишатися у форматі .md.');
+        if (!extension) name += '.md';
+      }
+      const nextPath = parentWorkspacePath(node.path)
+        ? `${parentWorkspacePath(node.path)}/${name}`
+        : name;
+      if (nextPath === node.path) return;
+      await flushPendingNoteSaves();
+      const pathChanges = buildPathChanges(fileNodes, node.path, nextPath);
+      await workspaceFileSystem.rename(LOCAL_REPOSITORY_ID, node.path, name);
+      await refreshAfterRelocation(pathChanges);
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося перейменувати елемент.');
+    }
+  }, [fileNodes, flushPendingNoteSaves, refreshAfterRelocation]);
+
+  const moveTreeNode = useCallback(async (node: WorkspaceFileNode, targetParentPath: string) => {
+    try {
+      const target = targetParentPath ? `${targetParentPath}/${node.name}` : node.name;
+      if (target === node.path) return;
+      await flushPendingNoteSaves();
+      const pathChanges = buildPathChanges(fileNodes, node.path, target);
+      await workspaceFileSystem.move(LOCAL_REPOSITORY_ID, node.path, targetParentPath);
+      await refreshAfterRelocation(pathChanges);
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося перемістити елемент.');
+    }
+  }, [fileNodes, flushPendingNoteSaves, refreshAfterRelocation]);
+
+  const deleteTreeNode = useCallback(async (node: WorkspaceFileNode) => {
+    const removedNodes = fileNodes.filter(item => isPathWithin(item.path, node.path));
+    const removedIds = new Set(removedNodes.flatMap(item => item.documentId ? [item.documentId] : []));
+    const removedNotes = notes.filter(note => removedIds.has(note.id));
+    const removedBinaries = Object.values(binaryDocumentRecords).filter(document => removedIds.has(document.id));
+    const hasUnsavedChanges = removedNotes.some(note => dirtyNoteIds.current.has(note.id) || dirtyTitleNoteIds.current.has(note.id))
+      || removedBinaries.some(document => binaryUiState[document.id]?.dirty);
+    if (saveState === 'saving') {
+      setStorageError('Дочекайтеся завершення поточного збереження перед видаленням.');
+      return;
+    }
+    const kindLabel = node.kind === 'folder' ? 'папку та весь її вміст' : 'файл';
+    const details = [
+      removedNotes.length ? `Нотаток: ${removedNotes.length}` : '',
+      removedNodes.length - removedNotes.length ? `Інших елементів: ${removedNodes.length - removedNotes.length}` : '',
+      hasUnsavedChanges ? 'Незбережені зміни буде втрачено.' : '',
+    ].filter(Boolean).join('\n');
+    if (!window.confirm(`Видалити ${kindLabel} «${node.name}»?\n${details}\n\nДію неможливо скасувати.`)) return;
+
+    try {
+      if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      saveSequence.current += 1;
+      await workspaceFileSystem.remove(LOCAL_REPOSITORY_ID, node.path);
+
+      for (const note of removedNotes) {
+        dirtyNoteIds.current.delete(note.id);
+        dirtyTitleNoteIds.current.delete(note.id);
+        editorStatesRef.current.delete(note.id);
+        scrollPositionsRef.current.delete(note.id);
+      }
+      const manager = managerRef.current;
+      if (manager) {
+        for (const tab of [...manager.getSnapshot().tabs]) {
+          if (removedIds.has(workspaceTabDocumentId(tab))) manager.closeTab(tab.id);
+        }
+        persistWorkspace(manager);
+      }
+      setNotes(current => current.filter(note => !removedIds.has(note.id)));
+      setBinaryDocumentRecords(current => Object.fromEntries(Object.entries(current).filter(([id]) => !removedIds.has(id))));
+      setBinaryUiState(current => Object.fromEntries(Object.entries(current).filter(([id]) => !removedIds.has(id))));
+      if (attachmentsNoteId && removedIds.has(attachmentsNoteId)) setAttachmentsNoteId(null);
+      setSelectedFolderPath(current => isPathWithin(current, node.path) ? parentWorkspacePath(node.path) : current);
+      await refreshFileNodes();
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося видалити елемент.');
+    }
+  }, [attachmentsNoteId, binaryDocumentRecords, binaryUiState, fileNodes, notes, persistWorkspace, refreshFileNodes, saveState]);
+
   const openBinaryDocument = useCallback(async (id: string) => {
     const manager = managerRef.current;
     if (!manager) return;
@@ -560,6 +702,10 @@ export function App() {
             selectedPath={selectedFolderPath}
             onSelectFolder={setSelectedFolderPath}
             onOpenFile={openFileNode}
+            onRename={node => void renameTreeNode(node)}
+            onMove={(node, target) => void moveTreeNode(node, target)}
+            onDelete={node => void deleteTreeNode(node)}
+            disabled={saveState === 'loading' || saveState === 'saving'}
           />
           <div className="sidebar-footer"><span className="status-dot" />Лише локальне збереження</div>
         </aside>}

@@ -834,6 +834,7 @@ test('renames and moves VFS nodes atomically and recursively removes linked docu
     const { database } = await import('/src/infrastructure/storage/database.ts');
     const repositoryId = 'local-workspace';
     const id = crypto.randomUUID();
+    const targetId = crypto.randomUUID();
     const now = Date.now();
 
     await workspaceFileSystem.createFolder(repositoryId, 'Notes', 'VfsTest');
@@ -841,21 +842,28 @@ test('renames and moves VFS nodes atomically and recursively removes linked docu
     await documentSource.create({
       id, repositoryId, title: 'VFS test document', syncState: 'local',
       createdAt: now, updatedAt: now,
-    }, 'VFS test content');
+    }, '[Target](../target.md)\\n\\n```md\\n[Example](../target.md)\\n```');
     await workspaceFileSystem.registerDocument(repositoryId, id, 'Notes/VfsTest/Nested/file.md');
+    await workspaceFileSystem.createDocument({
+      id: targetId, repositoryId, title: 'Target', syncState: 'local',
+      createdAt: now, updatedAt: now,
+    }, 'Notes/VfsTest/target.md');
 
     await workspaceFileSystem.rename(repositoryId, 'Notes/VfsTest', 'VfsRenamed');
     await workspaceFileSystem.move(repositoryId, 'Notes/VfsRenamed/Nested/file.md', 'Notes/VfsRenamed');
     await workspaceFileSystem.rename(repositoryId, 'Notes/VfsRenamed/file.md', 'renamed.md');
 
     const updatedNote = await database.notes.get(id);
+    const updatedContent = updatedNote?.content;
     await workspaceFileSystem.remove(repositoryId, 'Notes/VfsRenamed');
     const deletedNote = await database.notes.get(id);
+    const deletedTarget = await database.notes.get(targetId);
 
-    return { path: updatedNote?.path, deleted: deletedNote === undefined };
+    return { path: updatedNote?.path, content: updatedContent, deleted: deletedNote === undefined && deletedTarget === undefined };
   });
 
   expect(result.path).toBe('Notes/VfsRenamed/renamed.md');
+  expect(result.content).toBe('[Target](target.md)\\n\\n```md\\n[Example](../target.md)\\n```');
   expect(result.deleted).toBe(true);
 });
 

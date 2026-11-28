@@ -2,6 +2,7 @@ import type { WorkspaceFileNode, WorkspaceFileSystem } from '../../core/domain/w
 import type { BinaryDocumentRecord } from '../../core/domain/document-source';
 import { normalizeWorkspacePath, parentWorkspacePath, validateWorkspaceName, workspacePathName } from '../../core/domain/workspace-file-system';
 import { database } from './database';
+import { rewriteWorkspaceMarkdownLinks } from './markdown-workspace-links';
 
 function makeId(): string {
   return crypto.randomUUID();
@@ -185,23 +186,43 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
         throw new Error('A folder cannot be moved into itself or one of its descendants.');
       }
       const now = Date.now();
+      const pathChanges = new Map(moving.map(node => [
+        node.path,
+        normalizedNew + node.path.slice(oldPath.length),
+      ]));
+      const existingPaths = new Set(nodes.map(node => node.path));
+      const repositoryNotes = await database.notes.where('repositoryId').equals(repositoryId).toArray();
+
+      for (const note of repositoryNotes) {
+        if (!note.path) continue;
+        const updatedPath = pathChanges.get(note.path) ?? note.path;
+        const updatedContent = rewriteWorkspaceMarkdownLinks(
+          note.content,
+          note.path,
+          updatedPath,
+          pathChanges,
+          existingPaths,
+        );
+        if (updatedPath !== note.path || updatedContent !== note.content) {
+          note.path = updatedPath;
+          note.content = updatedContent;
+          note.updatedAt = now;
+          await database.notes.put(note);
+        }
+      }
+
       for (const node of moving) {
-        const updatedPath = normalizedNew + node.path.slice(oldPath.length);
+        const updatedPath = pathChanges.get(node.path)!;
         node.path = updatedPath;
         node.parentPath = parentWorkspacePath(updatedPath);
         node.name = workspacePathName(updatedPath);
         node.updatedAt = now;
         await database.fileNodes.put(node);
         if (node.documentId) {
-          const note = await database.notes.get(node.documentId);
-          if (note) {
-            note.path = updatedPath;
-            note.updatedAt = now;
-            await database.notes.put(note);
-          }
           const binaryDocument = await database.binaryDocuments.get(node.documentId);
           if (binaryDocument) {
             binaryDocument.path = updatedPath;
+            binaryDocument.title = workspacePathName(updatedPath);
             binaryDocument.updatedAt = now;
             await database.binaryDocuments.put(binaryDocument);
           }
