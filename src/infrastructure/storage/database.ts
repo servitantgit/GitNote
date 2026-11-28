@@ -19,12 +19,26 @@ interface StoredWorkspace {
   updatedAt: number;
 }
 
+export interface LocalSearchDocument {
+  id: string;
+  documentType: 'note' | 'binary';
+  title: string;
+  path?: string;
+  format: string;
+  text: string;
+  /** Unique lower-case trigrams used by the multi-entry IndexedDB index. */
+  grams: string[];
+  /** Source document timestamp used to detect stale extracted text. */
+  sourceUpdatedAt: number;
+}
+
 class GitNotesDatabase extends Dexie {
   drafts!: EntityTable<LocalDraft, 'id'>;
   notes!: EntityTable<LocalNote, 'id'>;
   workspaces!: EntityTable<StoredWorkspace, 'id'>;
   fileNodes!: EntityTable<WorkspaceFileNode, 'id'>;
   binaryDocuments!: EntityTable<BinaryDocumentRecord, 'id'>;
+  searchDocuments!: EntityTable<LocalSearchDocument, 'id'>;
 
   constructor() {
     // Keep the existing database name so previously saved GitNote notes remain accessible.
@@ -130,6 +144,14 @@ class GitNotesDatabase extends Dexie {
       workspaces: 'id, updatedAt',
       fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
       binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+    });
+    this.version(7).stores({
+      drafts: 'id, repositoryId, path, updatedAt',
+      notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      workspaces: 'id, updatedAt',
+      fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
+      binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      searchDocuments: 'id, documentType, sourceUpdatedAt, *grams',
     });
   }
 }

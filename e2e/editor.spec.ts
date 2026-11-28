@@ -1181,7 +1181,18 @@ test('searches all local Markdown notes, including notes whose tabs are closed',
   const result = page.locator('.workspace-search-results button');
   await expect(result).toContainText('Closed search note');
   await expect(result).toContainText('unique phrase');
-  await result.click();
+
+  // The first query builds the index; the second query after reload must reuse
+  // the IndexedDB index rather than requiring every source document again.
+  await page.getByRole('button', { name: 'Закрити пошук' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
+  await page.getByLabel('Пошуковий запит').fill('unique phrase');
+  await page.getByRole('button', { name: 'Знайти' }).click();
+  const persistedResult = page.locator('.workspace-search-results button');
+  await expect(persistedResult).toContainText('Closed search note');
+  await expect(persistedResult).toContainText('unique phrase');
+  await persistedResult.click();
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Closed search note');
 });
 

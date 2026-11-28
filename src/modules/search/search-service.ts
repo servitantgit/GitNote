@@ -1,6 +1,8 @@
 import type { DocumentRecord, BinaryDocumentRecord } from '../../core/domain/document-source';
 import { detectDocumentFormat, type DocumentFormatId } from '../../core/domain/document-format';
 import { binaryDocumentSource } from '../../infrastructure/storage/local-document-source';
+import { database, type LocalSearchDocument } from '../../infrastructure/storage/database';
+import { createSearchGrams } from './search-index';
 import { DocumentClient } from '../../vendor/office-engine';
 import type { Block } from '../../vendor/office-engine/src/core/docx/types';
 import { docxToText, slidesToText } from '../../vendor/office-engine/src/react/file/text';
@@ -138,6 +140,88 @@ async function extractBinaryText(document: BinaryDocumentRecord, format: Documen
   return null;
 }
 
+async function saveSearchDocument(
+  document: Pick<DocumentRecord, 'id' | 'title' | 'path' | 'updatedAt'> | Pick<BinaryDocumentRecord, 'id' | 'title' | 'path' | 'updatedAt'>,
+  documentType: 'note' | 'binary',
+  format: DocumentFormatId,
+  text: string,
+): Promise<void> {
+  const record: LocalSearchDocument = {
+    id: document.id,
+    documentType,
+    title: document.title || 'Без назви',
+    path: document.path,
+    format,
+    text,
+    grams: createSearchGrams(text),
+    sourceUpdatedAt: document.updatedAt,
+  };
+  await database.searchDocuments.put(record);
+}
+
+async function syncSearchIndex(
+  notes: DocumentRecord[],
+  onProgress?: (progress: WorkspaceSearchProgress) => void,
+): Promise<{ total: number; skippedPdfCount: number; errors: string[] }> {
+  const binaryMetas = await binaryDocumentSource.list();
+  const sourceIds = new Set([...notes.map(note => note.id), ...binaryMetas.map(document => document.id)]);
+  const indexedIds = await database.searchDocuments.toCollection().primaryKeys();
+  const staleIds = indexedIds.filter(id => !sourceIds.has(String(id)));
+  if (staleIds.length) await database.searchDocuments.bulkDelete(staleIds);
+
+  const total = notes.length + binaryMetas.length;
+  const errors: string[] = [];
+  let completed = 0;
+  let skippedPdfCount = 0;
+
+  for (const note of notes) {
+    const cached = await database.searchDocuments.get(note.id);
+    if (!cached || cached.documentType !== 'note' || cached.sourceUpdatedAt !== note.updatedAt) {
+      await saveSearchDocument(note, 'note', 'markdown', note.content);
+    } else if (cached.title !== note.title || cached.path !== note.path) {
+      await database.searchDocuments.update(note.id, { title: note.title || 'Без назви', path: note.path });
+    }
+    completed += 1;
+    onProgress?.({ completed, total, currentTitle: note.title });
+  }
+
+  for (const meta of binaryMetas) {
+    const format = detectDocumentFormat(meta.title, meta.mediaType).id;
+    if (format === 'pdf') {
+      skippedPdfCount += 1;
+      await database.searchDocuments.delete(meta.id);
+      completed += 1;
+      onProgress?.({ completed, total, currentTitle: meta.title });
+      continue;
+    }
+
+    const cached = await database.searchDocuments.get(meta.id);
+    if (cached && cached.documentType === 'binary' && cached.sourceUpdatedAt === meta.updatedAt) {
+      if (cached.title !== meta.title || cached.path !== meta.path || cached.format !== format) {
+        await database.searchDocuments.update(meta.id, { title: meta.title || 'Без назви', path: meta.path, format });
+      }
+      completed += 1;
+      onProgress?.({ completed, total, currentTitle: meta.title });
+      continue;
+    }
+
+    try {
+      const document = await binaryDocumentSource.read(meta.id);
+      const content = await extractBinaryText(document, format);
+      if (content !== null) await saveSearchDocument(document, 'binary', format, content);
+      else await database.searchDocuments.delete(meta.id);
+    } catch (error) {
+      // Never leave stale text searchable after a source document changed.
+      await database.searchDocuments.delete(meta.id);
+      errors.push(meta.title + ': ' + (error instanceof Error ? error.message : String(error)));
+    }
+    completed += 1;
+    onProgress?.({ completed, total, currentTitle: meta.title });
+  }
+
+  return { total, skippedPdfCount, errors };
+}
+
 export async function searchWorkspaceDocuments(
   notes: DocumentRecord[],
   query: string,
@@ -146,54 +230,43 @@ export async function searchWorkspaceDocuments(
   const term = query.trim();
   if (!term) return { results: [], scannedCount: 0, skippedPdfCount: 0, errors: [] };
 
-  const binaryMetas = await binaryDocumentSource.list();
-  const total = notes.length + binaryMetas.length;
-  const report: WorkspaceSearchReport = { results: [], scannedCount: 0, skippedPdfCount: 0, errors: [] };
+  const synced = await syncSearchIndex(notes, onProgress);
+  const grams = createSearchGrams(term);
+  let candidates: LocalSearchDocument[];
 
-  const addResult = (
-    document: Pick<DocumentRecord, 'id' | 'title' | 'path'> | Pick<BinaryDocumentRecord, 'id' | 'title' | 'path'>,
-    documentType: 'note' | 'binary',
-    format: DocumentFormatId,
-    content: string,
-  ) => {
-    const match = findTextMatches(content, term);
-    if (!match) return;
+  if (grams.length) {
+    const frequencies = await Promise.all(grams.map(async gram => ({
+      gram,
+      count: await database.searchDocuments.where('grams').equals(gram).count(),
+    })));
+    const rarest = frequencies.reduce((best, current) => current.count < best.count ? current : best);
+    candidates = await database.searchDocuments.where('grams').equals(rarest.gram).toArray();
+  } else {
+    candidates = await database.searchDocuments.toArray();
+  }
+
+  const report: WorkspaceSearchReport = {
+    results: [],
+    scannedCount: candidates.length,
+    skippedPdfCount: synced.skippedPdfCount,
+    errors: synced.errors,
+  };
+
+  for (const document of candidates) {
+    const match = findTextMatches(document.text, term);
+    if (!match) continue;
     report.results.push({
       documentId: document.id,
-      documentType,
+      documentType: document.documentType,
       title: document.title || 'Без назви',
       path: document.path,
-      format,
+      format: document.format as DocumentFormatId,
       matchCount: match.count,
       snippet: match.snippet,
     });
-  };
-
-  for (const note of notes) {
-    onProgress?.({ completed: report.scannedCount, total, currentTitle: note.title });
-    addResult(note, 'note', 'markdown', note.content);
-    report.scannedCount += 1;
   }
 
-  for (const meta of binaryMetas) {
-    onProgress?.({ completed: report.scannedCount, total, currentTitle: meta.title });
-    const format = detectDocumentFormat(meta.title, meta.mediaType).id;
-    if (format === 'pdf') {
-      report.skippedPdfCount += 1;
-      report.scannedCount += 1;
-      continue;
-    }
-    try {
-      const document = await binaryDocumentSource.read(meta.id);
-      const content = await extractBinaryText(document, format);
-      if (content !== null) addResult(document, 'binary', format, content);
-    } catch (error) {
-      report.errors.push(meta.title + ': ' + (error instanceof Error ? error.message : String(error)));
-    }
-    report.scannedCount += 1;
-  }
-
-  onProgress?.({ completed: total, total, currentTitle: '' });
+  onProgress?.({ completed: candidates.length, total: candidates.length, currentTitle: '' });
   report.results.sort((a, b) => a.title.localeCompare(b.title));
   return report;
 }
