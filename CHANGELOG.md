@@ -3,7 +3,7 @@
 All notable changes to GitNotes are documented here.
 
 ## [Unreleased]
-- Add Java and Python syntax highlighting for Markdown fenced code blocks, selected by the fence language tag; no IDE features are included.
+- Add Java and Python syntax highlighting for Markdown fenced code blocks in Source, Live and rendered Preview, using the same CM6/Lezer parsers; no IDE features are included.
 - Add an HTML-specific bidirectional scroll adapter between the source pane and rendered document pane, isolated from Markdown navigation synchronization.
 - Constrain the HTML viewer to its host area so its source and rendered panes scroll internally instead of expanding the document layout.
 - Add Chromium regression coverage for scrolling HTML source and rendered panes in both directions.

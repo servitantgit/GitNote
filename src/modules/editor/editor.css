@@ -35,3 +35,14 @@
 .editor-outline-empty{margin:4px 7px;color:var(--muted);font-size:12px}
 @media(min-width:701px){.editor-main.live-mode{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto}}
 @media(max-width:700px){.outline-toggle,.editor-outline{display:none}}
+
+
+/* Shared Lezer token classes for rendered Markdown code fences. */
+.markdown-preview pre code .tok-keyword,.markdown-preview pre code .tok-atom,.markdown-preview pre code .tok-bool,.markdown-preview pre code .tok-null{color:#c678dd;font-weight:600}
+.markdown-preview pre code .tok-string,.markdown-preview pre code .tok-special{color:#98c379}
+.markdown-preview pre code .tok-number,.markdown-preview pre code .tok-literal{color:#d19a66}
+.markdown-preview pre code .tok-comment{color:#7f8794;font-style:italic}
+.markdown-preview pre code .tok-typeName,.markdown-preview pre code .tok-className,.markdown-preview pre code .tok-namespace{color:#e5c07b}
+.markdown-preview pre code .tok-variableName,.markdown-preview pre code .tok-propertyName,.markdown-preview pre code .tok-definition{color:#61afef}
+.markdown-preview pre code .tok-operator,.markdown-preview pre code .tok-punctuation{color:var(--text)}
+.markdown-preview pre code .tok-invalid{color:#e06c75;text-decoration:underline wavy}

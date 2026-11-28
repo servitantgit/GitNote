@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { codeLanguages } from './code-languages';
@@ -7,7 +7,6 @@ import { Prec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { EditorView } from '@codemirror/view';
 import type { EditorState } from '@codemirror/state';
-import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import {
   Bold, Italic, Strikethrough, Code2, Link2, Heading1, Heading2,
@@ -23,6 +22,7 @@ import {
 } from './navigation/scroll-position';
 import { Minimap } from './Minimap';
 import { Outline } from './Outline';
+import { renderMarkdown } from './markdown-preview';
 import './editor.css';
 
 interface Props {
@@ -85,6 +85,7 @@ export function EditorWorkspace({
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [rendered, setRendered] = useState('');
   const previewRef = useRef<HTMLElement | null>(null);
   const sourceAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; view: EditorView; detach: () => void } | null>(null);
   const previewAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; element: HTMLElement; detach: () => void } | null>(null);
@@ -129,9 +130,17 @@ export function EditorWorkspace({
   };
 
   const extensions = useMemo(() => [markdown({ codeLanguages }), markdownKeymap, EditorView.lineWrapping], []);
-  const rendered = useMemo(() => mode === 'preview' || mode === 'live'
-    ? DOMPurify.sanitize(marked.parse(content, { gfm: true }) as string)
-    : '', [content, mode]);
+  useEffect(() => {
+    if (mode !== 'preview' && mode !== 'live') {
+      setRendered('');
+      return;
+    }
+    let active = true;
+    void renderMarkdown(content).then(html => {
+      if (active) setRendered(DOMPurify.sanitize(html));
+    });
+    return () => { active = false; };
+  }, [content, mode]);
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;
 

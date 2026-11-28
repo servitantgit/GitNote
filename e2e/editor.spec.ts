@@ -659,6 +659,38 @@ test('captures Source and Live visual states for browser review', async ({ page 
   await page.screenshot({ path: 'test-results/gitnotes-live.png', fullPage: true });
 });
 
+test('highlights Java and Python fenced code in rendered Markdown Preview', async ({ page }) => {
+  const editor = page.locator('.cm-content');
+  const fence = String.fromCharCode(96).repeat(3);
+  await editor.fill([
+    '# Syntax highlighting',
+    '',
+    fence + 'java',
+    'public class Demo {',
+    '  public static void main(String[] args) {',
+    '    System.out.println("hello");',
+    '  }',
+    '}',
+    fence,
+    '',
+    fence + 'python',
+    'def greet(name):',
+    '    return "Hello " + name',
+    fence,
+  ].join('\n'));
+
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  const preview = page.locator('.markdown-preview');
+  await expect(preview.locator('pre code.language-java .tok-keyword').first()).toHaveText('public');
+  await expect(preview.locator('pre code.language-python .tok-keyword').first()).toHaveText('def');
+  await expect(preview.locator('pre code.language-python .tok-string').first()).toContainText('Hello ');
+  await expect(preview.locator('h1')).toHaveText('Syntax highlighting');
+
+  await page.getByRole('tab', { name: 'Live', exact: true }).click();
+  await expect(preview.locator('pre code.language-java .tok-keyword').first()).toHaveText('public');
+  await expect(preview.locator('pre code.language-python .tok-keyword').first()).toHaveText('def');
+});
+
 test('stores newly created notes as files in the local VFS', async ({ page }) => {
   await expect(page.getByLabel('Назва нотатки')).toHaveValue('Моя перша нотатка');
   await page.getByRole('button', { name: 'Створити нотатку' }).click();
