@@ -14,9 +14,12 @@ describe('workspace path rules', () => {
 
   it('validates names as single path segments', () => {
     expect(validateWorkspaceName('  Draft.md  ')).toBe('Draft.md');
+    expect(validateWorkspaceName('2026-report-v0.docx')).toBe('2026-report-v0.docx');
     expect(() => validateWorkspaceName('')).toThrow('non-empty');
     expect(() => validateWorkspaceName('../Draft.md')).toThrow('non-empty');
     expect(() => validateWorkspaceName('folder/name')).toThrow('non-empty');
+    expect(() => validateWorkspaceName('folder\\name')).toThrow('non-empty');
+    expect(() => validateWorkspaceName('file\0name.md')).toThrow('non-empty');
   });
 
   it('extracts parent and leaf names', () => {
