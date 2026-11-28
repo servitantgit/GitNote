@@ -44,7 +44,12 @@ export function HtmlDocumentViewer({ document, onSave, onDirtyChange, onError }:
   }, [document.id]);
 
   return (
-    <div ref={rootRef} className="html-document-viewer" data-testid="html-document-viewer">
+    <div
+      ref={rootRef}
+      className="html-document-viewer"
+      data-testid="html-document-viewer"
+      style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', overflow: 'hidden' }}
+    >
       <DocViewer
         src={document.content}
         name={document.title}

@@ -4,6 +4,7 @@ All notable changes to GitNotes are documented here.
 
 ## [Unreleased]
 - Add an HTML-specific bidirectional scroll adapter between the source pane and rendered document pane, isolated from Markdown navigation synchronization.
+- Constrain the HTML viewer to its host area so its source and rendered panes scroll internally instead of expanding the document layout.
 - Add Chromium regression coverage for scrolling HTML source and rendered panes in both directions.
 
 ### Added
