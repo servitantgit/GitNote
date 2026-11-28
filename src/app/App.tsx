@@ -18,6 +18,8 @@ import { WorkspaceFileTree } from '../modules/workspace/WorkspaceFileTree';
 import { detectDocumentFormat } from '../core/domain/document-format';
 import { DocumentActions } from '../modules/documents/DocumentActions';
 import { NoteAttachmentsDialog } from '../modules/attachments/NoteAttachmentsDialog';
+import { noteAttachmentStore } from '../infrastructure/storage/local-note-attachment-store';
+import { compressImage } from '../modules/attachments/image-compress';
 import { downloadDocument } from '../modules/documents/document-download';
 import { printMarkdownDocument } from '../modules/documents/markdown-print';
 import { WorkspaceManager, workspaceTabDocumentId, workspaceTabDocumentType, type WorkspaceSnapshot } from '../core/domain/workspace';
@@ -473,6 +475,24 @@ export function App() {
     }
   }, [activeNote, notes, persistWorkspace, refreshFileNodes]);
 
+  const addImageToNote = useCallback(async (noteId: string, file: File): Promise<string> => {
+    try {
+      const compressed = await compressImage(file);
+      const attachment = await noteAttachmentStore.add(noteId, compressed);
+      setStorageError(null);
+      return attachment.id;
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Не вдалося додати зображення.');
+      throw error;
+    }
+  }, []);
+
+  const resolveNoteAttachment = useCallback(async (noteId: string, attachmentId: string): Promise<Blob> => {
+    const attachment = await noteAttachmentStore.read(attachmentId);
+    if (attachment.noteId !== noteId) throw new Error('Вкладення не належить цій нотатці.');
+    return attachment.content;
+  }, []);
+
   const handleEditorContentChange = useCallback((content: string) => {
     const noteId = activeNoteIdRef.current;
     if (!noteId) return;
@@ -577,7 +597,7 @@ export function App() {
                 lineWrapping={preferences.lineWrapping} lineNumbersEnabled={preferences.lineNumbers}
                 fontSize={preferences.editorFontSize} outlineOpenByDefault={preferences.outlineOpenByDefault}
                 minimapOpenByDefault={preferences.minimapOpenByDefault}
-                content={activeNote.content} onContentChange={handleEditorContentChange} searchNavigation={searchNavigation?.documentId === activeNote.id ? searchNavigation : undefined} /></div>}
+                content={activeNote.content} onContentChange={handleEditorContentChange} onAddImage={addImageToNote} resolveAttachment={resolveNoteAttachment} searchNavigation={searchNavigation?.documentId === activeNote.id ? searchNavigation : undefined} /></div>}
             {!activeNote && !activeBinaryDocument && <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
           </div>
         </section>

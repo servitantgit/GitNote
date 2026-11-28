@@ -12,7 +12,7 @@ import { searchHighlightExtension, setSearchHighlights } from './search-highligh
 import DOMPurify from 'dompurify';
 import {
   Bold, Italic, Strikethrough, Code2, Link2, Heading1, Heading2,
-  List, ListOrdered, Quote, Minus, Undo2, Redo2, Map as MapIcon, ListTree,
+  List, ListOrdered, Quote, Minus, Undo2, Redo2, Map as MapIcon, ListTree, ImagePlus,
 } from 'lucide-react';
 import type { EditorMode } from './types';
 import { prefixLines, toggleHeading, wrapSelection } from './markdown-commands';
@@ -36,6 +36,8 @@ interface Props {
   onModeChange: (mode: EditorMode) => void;
   content: string;
   onContentChange: (value: string) => void;
+  onAddImage: (noteId: string, file: File) => Promise<string>;
+  resolveAttachment: (noteId: string, attachmentId: string) => Promise<Blob>;
   searchNavigation?: { id: number; documentId: string; ranges: SearchMatchRange[] };
   lineWrapping: boolean; lineNumbersEnabled: boolean; fontSize: number;
   outlineOpenByDefault: boolean; minimapOpenByDefault: boolean;
@@ -85,9 +87,12 @@ export function EditorWorkspace({
   onModeChange,
   content,
   onContentChange,
+  onAddImage,
+  resolveAttachment,
   searchNavigation, lineWrapping, lineNumbersEnabled, fontSize, outlineOpenByDefault, minimapOpenByDefault,
 }: Props) {
   const editorRef = useRef<EditorView | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const editorDocumentIdRef = useRef<string | null>(null);
   const lastAppliedSearchIdRef = useRef<number | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
@@ -169,16 +174,31 @@ export function EditorWorkspace({
     editorView.focus();
   }, [documentId, editorView, searchNavigation?.id]);
   useEffect(() => {
+    let active = true;
+    const objectUrls = new Set<string>();
+    const placeholders = new Map<string, string>();
     if (mode !== 'preview' && mode !== 'live') {
       setRendered(null);
-      return;
+      return () => { active = false; };
     }
-    let active = true;
-    void renderMarkdown(content).then(html => {
-      if (active) setRendered({ content, html: DOMPurify.sanitize(html) });
+    void renderMarkdown(content, id => resolveAttachment(documentId, id), (placeholder, objectUrl) => {
+      if (!active) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      objectUrls.add(objectUrl);
+      placeholders.set(placeholder, objectUrl);
+    }).then(html => {
+      if (!active) return;
+      let safeHtml = DOMPurify.sanitize(html);
+      for (const [placeholder, objectUrl] of placeholders) safeHtml = safeHtml.replaceAll(placeholder, objectUrl);
+      setRendered({ content, html: safeHtml });
     });
-    return () => { active = false; };
-  }, [content, mode]);
+    return () => {
+      active = false;
+      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
+    };
+  }, [content, mode, documentId, resolveAttachment]);
   const previewReady = rendered?.content === content;
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;
@@ -217,6 +237,59 @@ export function EditorWorkspace({
   // Surface listeners are detached by the effect above. Do not terminally destroy
   // this memoized coordinator here: React StrictMode replays effect cleanup/setup
   // with the same instance, which would otherwise leave it permanently disabled.
+
+  const insertImages = async (files: File[]) => {
+    const view = editorRef.current;
+    if (!view || mode === 'preview') return;
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      try {
+        const attachmentId = await onAddImage(documentId, file);
+        if (editorRef.current !== view || editorDocumentIdRef.current !== documentId) continue;
+        const alt = file.name.replace(/\\/g, '\\\\').replace(/\]/g, '\\]').replace(/[\r\n]+/g, ' ');
+        const markdownImage = '![' + alt + '](attachment:' + attachmentId + ')';
+        const { from, to } = view.state.selection.main;
+        view.dispatch({
+          changes: { from, to, insert: markdownImage },
+          selection: { anchor: from + markdownImage.length },
+          scrollIntoView: true,
+        });
+        view.focus();
+      } catch {
+        // The app shell reports storage errors; keep the editor usable.
+      }
+    }
+  };
+
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const pastedFiles = Array.from(event.clipboardData?.items ?? [])
+        .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+        .map(item => item.getAsFile())
+        .filter((file): file is File => Boolean(file));
+      if (!pastedFiles.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void insertImages(pastedFiles);
+    };
+    const onDrop = (event: DragEvent) => {
+      const droppedFiles = Array.from(event.dataTransfer?.files ?? []).filter(file => file.type.startsWith('image/'));
+      if (!droppedFiles.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (position !== null) view.dispatch({ selection: { anchor: position } });
+      void insertImages(droppedFiles);
+    };
+    view.dom.addEventListener('paste', onPaste, true);
+    view.dom.addEventListener('drop', onDrop, true);
+    return () => {
+      view.dom.removeEventListener('paste', onPaste, true);
+      view.dom.removeEventListener('drop', onDrop, true);
+    };
+  }, [documentId, mode, onAddImage, editorView]);
 
   const applyEdit = (edit: (text: string, from: number, to: number) => { text: string; selection: { from: number; to: number } }) => {
     const view = editorRef.current;
@@ -291,6 +364,13 @@ export function EditorWorkspace({
         <div className="format-toolbar" role="toolbar" aria-label="Форматування Markdown">
           <button type="button" aria-label="Скасувати" title="Скасувати (Ctrl+Z)" onClick={() => runHistory(undo)}><Undo2 size={16} /></button>
           <button type="button" aria-label="Повторити" title="Повторити (Ctrl+Y)" onClick={() => runHistory(redo)}><Redo2 size={16} /></button>
+          <button type="button" aria-label="Вставити зображення" title="Додати зображення" onClick={() => imageInputRef.current?.click()}><ImagePlus size={16} /></button>
+          <input ref={imageInputRef} type="file" accept="image/*" multiple aria-label="Вибрати зображення" hidden
+            onChange={event => {
+              const selectedFiles = Array.from(event.currentTarget.files ?? []);
+              event.currentTarget.value = '';
+              void insertImages(selectedFiles);
+            }} />
           <span className="toolbar-separator" />
           <button type="button" aria-label="Жирний" title="Жирний (Ctrl+B)" onClick={() => inline('**')}><Bold size={16} /></button>
           <button type="button" aria-label="Курсив" title="Курсив (Ctrl+I)" onClick={() => inline('*')}><Italic size={16} /></button>
