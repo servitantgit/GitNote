@@ -163,6 +163,7 @@ The goal is format-appropriate experiences within one workspace, not a single Ma
 - [x] DOCX viewer and editing strategy: browser-local editing through the locally vendored office-engine source.
 - [x] XLSX viewer and editing strategy: browser-local editing through the locally vendored office-engine source.
 - [x] PPTX viewing/editing scope: browser-local editing through the locally vendored office-engine source.
+- [x] Create blank DOCX, XLSX and PPTX files locally through the vendored engine and open them in the matching editor.
 - [ ] Sandboxed HTML preview and HTML editing strategy.
 - [x] Initial filename/MIME format detection for common text, Office, PDF, media and archive types. Format-specific dispatch remains planned.
 - [ ] Lazy-load heavy viewers/editors and define import/export behavior per format.
@@ -182,7 +183,7 @@ Only after editor and local workspace foundations are ready:
 
 ## Known limitations and cautions
 
-- The sidebar now renders one recursive VFS tree for notes and binary files; the separate Notes and Documents lists have been removed. Users can select a folder, create a child folder, create a Markdown note in that folder, and import currently supported file formats into it. Existing `Notes/` and `Documents/` paths remain intact and visible as ordinary folders.
+- The sidebar now renders one recursive VFS tree for notes and binary files; the separate Notes and Documents lists have been removed. Users can select a folder, create a child folder, create a Markdown note or blank DOCX/XLSX/PPTX document in that folder, and import currently supported file formats into it. File-type icons are color-coded consistently in the tree and Create menu. Existing `Notes/` and `Documents/` paths remain intact and visible as ordinary folders.
 - File-tree rename/move controls, drag-and-drop, recursive delete from the tree, and a general format-handler/opening contract are not implemented yet. Existing VFS rename/move/delete operations remain available at the storage layer.
 - Legacy Office/OpenDocument, CSV and plain-text conversion imports are intentionally not exposed until converted output names/extensions can be updated atomically in the VFS. PDF is read-only and relies on browser-native PDF support.
 - The VFS does not yet rewrite Markdown links or maintain backlinks/search indexes.
