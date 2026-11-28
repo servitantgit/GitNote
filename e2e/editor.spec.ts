@@ -156,7 +156,7 @@ function makePptxFixture(): Buffer {
 }
 
 async function createNoteFromMenu(page: import('@playwright/test').Page) {
-  const trigger = page.getByRole('button', { name: 'Створити' });
+  const trigger = page.getByRole('button', { name: 'Створити', exact: true });
   await trigger.click();
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('menuitem', { name: 'Створити нотатку' }).click();
