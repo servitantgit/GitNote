@@ -85,7 +85,7 @@ export function EditorWorkspace({
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
-  const [rendered, setRendered] = useState('');
+  const [rendered, setRendered] = useState<{ content: string; html: string } | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const sourceAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; view: EditorView; detach: () => void } | null>(null);
   const previewAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; element: HTMLElement; detach: () => void } | null>(null);
@@ -137,15 +137,16 @@ export function EditorWorkspace({
     }
     let active = true;
     void renderMarkdown(content).then(html => {
-      if (active) setRendered(DOMPurify.sanitize(html));
+      if (active) setRendered({ content, html: DOMPurify.sanitize(html) });
     });
     return () => { active = false; };
   }, [content, mode]);
+  const previewReady = rendered?.content === content;
   const wordCount = content.trim() ? content.trim().split(/\s+/u).length : 0;
   const lineCount = content.length ? content.split('\n').length : 1;
 
   useLayoutEffect(() => {
-    if (mode === 'preview' || mode === 'live') {
+    if ((mode === 'preview' || mode === 'live') && previewReady) {
       const element = previewRef.current;
       const current = previewAttachmentRef.current;
       if (element && (current?.coordinator !== coordinator || current.element !== element)) {
@@ -173,7 +174,7 @@ export function EditorWorkspace({
         previewAttachmentRef.current = null;
       }
     };
-  }, [coordinator, mode, mode === 'preview' || mode === 'live' ? content : null]);
+  }, [coordinator, mode, content, previewReady]);
 
   // Surface listeners are detached by the effect above. Do not terminally destroy
   // this memoized coordinator here: React StrictMode replays effect cleanup/setup
@@ -306,7 +307,7 @@ export function EditorWorkspace({
         ref={previewRef}
         className="markdown-preview"
         hidden={mode !== 'preview' && mode !== 'live'}
-        dangerouslySetInnerHTML={{ __html: rendered }}
+        dangerouslySetInnerHTML={{ __html: previewReady ? rendered.html : '' }}
       />
       {outlineOpen && <Outline content={content} coordinator={coordinator} />}
       {minimapOpen && (
