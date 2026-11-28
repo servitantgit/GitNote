@@ -34,3 +34,9 @@
 .create-menu-popover button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--text);font:inherit;font-size:12px;text-align:left;cursor:pointer}
 .create-menu-popover button:hover{background:var(--hover)}
 .create-menu-popover button svg{flex:none}
+
+/* Compact density only affects workspace navigation chrome, not document content. */
+.app-shell.density-compact .topbar{height:50px;padding-left:16px;padding-right:16px}
+.app-shell.density-compact .sidebar{padding-top:12px;padding-bottom:12px}
+.app-shell.density-compact .file-tree-row{padding-top:5px;padding-bottom:5px}
+.app-shell.density-compact .document-tab>button:first-child{padding-top:6px;padding-bottom:5px}

@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { codeLanguages } from './code-languages';
 import { redo, undo } from '@codemirror/commands';
-import { Prec } from '@codemirror/state';
+import { Compartment, Prec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import { EditorView } from '@codemirror/view';
+import { EditorView, lineNumbers as lineNumbersExtension } from '@codemirror/view';
 import type { EditorState } from '@codemirror/state';
 import type { SearchMatchRange } from '../search/search-query';
 import { searchHighlightExtension, setSearchHighlights } from './search-highlight';
@@ -37,6 +37,8 @@ interface Props {
   content: string;
   onContentChange: (value: string) => void;
   searchNavigation?: { id: number; documentId: string; ranges: SearchMatchRange[] };
+  lineWrapping: boolean; lineNumbersEnabled: boolean; fontSize: number;
+  outlineOpenByDefault: boolean; minimapOpenByDefault: boolean;
 }
 
 interface ScrollDebugHook {
@@ -83,14 +85,16 @@ export function EditorWorkspace({
   onModeChange,
   content,
   onContentChange,
-  searchNavigation,
+  searchNavigation, lineWrapping, lineNumbersEnabled, fontSize, outlineOpenByDefault, minimapOpenByDefault,
 }: Props) {
   const editorRef = useRef<EditorView | null>(null);
   const editorDocumentIdRef = useRef<string | null>(null);
   const lastAppliedSearchIdRef = useRef<number | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
-  const [minimapOpen, setMinimapOpen] = useState(false);
-  const [outlineOpen, setOutlineOpen] = useState(false);
+  const [minimapOpen, setMinimapOpen] = useState(minimapOpenByDefault);
+  const [outlineOpen, setOutlineOpen] = useState(outlineOpenByDefault);
+  const wrappingCompartment = useMemo(() => new Compartment(), []);
+  const gutterCompartment = useMemo(() => new Compartment(), []);
   const [rendered, setRendered] = useState<{ content: string; html: string } | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const sourceAttachmentRef = useRef<{ coordinator: ReturnType<typeof createScrollCoordinator>; view: EditorView; detach: () => void } | null>(null);
@@ -135,7 +139,17 @@ export function EditorWorkspace({
     };
   };
 
-  const extensions = useMemo(() => [markdown({ codeLanguages }), markdownKeymap, EditorView.lineWrapping, searchHighlightExtension], []);
+  const extensions = useMemo(() => [markdown({ codeLanguages }), markdownKeymap, searchHighlightExtension,
+    wrappingCompartment.of(lineWrapping ? EditorView.lineWrapping : []),
+    gutterCompartment.of(lineNumbersEnabled ? lineNumbersExtension() : []),
+  ], [wrappingCompartment, gutterCompartment]);
+
+  useEffect(() => { setOutlineOpen(outlineOpenByDefault); }, [outlineOpenByDefault]);
+  useEffect(() => { setMinimapOpen(minimapOpenByDefault); }, [minimapOpenByDefault]);
+  useEffect(() => {
+    if (!editorView) return;
+    editorView.dispatch({ effects: [wrappingCompartment.reconfigure(lineWrapping ? EditorView.lineWrapping : []), gutterCompartment.reconfigure(lineNumbersEnabled ? lineNumbersExtension() : [])] });
+  }, [editorView, lineWrapping, lineNumbersEnabled, wrappingCompartment, gutterCompartment]);
 
   useEffect(() => {
     if (!searchNavigation || searchNavigation.documentId !== documentId || !editorView ||
@@ -238,7 +252,7 @@ export function EditorWorkspace({
   };
 
   return (
-    <div className="editor-frame">
+    <div className="editor-frame" style={{ "--editor-font-size": `${fontSize}px` } as CSSProperties}>
       <div className="editor-toolbar">
         <div className="mode-switch" role="tablist" aria-label="Режим документа">
           {modes.map(item => (
@@ -315,7 +329,7 @@ export function EditorWorkspace({
             attachSource(view);
           }}
           basicSetup={{
-            lineNumbers: true,
+            lineNumbers: false,
             foldGutter: true,
             highlightActiveLine: true,
             highlightActiveLineGutter: true,

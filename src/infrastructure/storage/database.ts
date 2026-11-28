@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { WorkspaceSnapshot } from '../../core/domain/workspace';
 import type { BinaryDocumentRecord, DocumentRecord } from '../../core/domain/document-source';
 import { normalizeWorkspacePath, type WorkspaceFileNode } from '../../core/domain/workspace-file-system';
+import { DEFAULT_PREFERENCES, type AppPreferences } from '../../modules/settings/preferences';
 
 export interface LocalDraft {
   id: string;
@@ -18,6 +19,8 @@ interface StoredWorkspace {
   snapshot: WorkspaceSnapshot;
   updatedAt: number;
 }
+
+interface StoredPreferences { id: string; value: AppPreferences; updatedAt: number; }
 
 export interface LocalSearchDocument {
   id: string;
@@ -39,6 +42,7 @@ class GitNotesDatabase extends Dexie {
   fileNodes!: EntityTable<WorkspaceFileNode, 'id'>;
   binaryDocuments!: EntityTable<BinaryDocumentRecord, 'id'>;
   searchDocuments!: EntityTable<LocalSearchDocument, 'id'>;
+  settings!: EntityTable<StoredPreferences, 'id'>;
 
   constructor() {
     // Keep the existing database name so previously saved GitNote notes remain accessible.
@@ -146,12 +150,14 @@ class GitNotesDatabase extends Dexie {
       binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
     });
     this.version(7).stores({
-      drafts: 'id, repositoryId, path, updatedAt',
-      notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
-      workspaces: 'id, updatedAt',
-      fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
-      binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
-      searchDocuments: 'id, documentType, sourceUpdatedAt, *grams',
+      drafts: 'id, repositoryId, path, updatedAt', notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      workspaces: 'id, updatedAt', fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
+      binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState', searchDocuments: 'id, documentType, sourceUpdatedAt, *grams',
+    });
+    this.version(8).stores({
+      drafts: 'id, repositoryId, path, updatedAt', notes: 'id, repositoryId, title, createdAt, updatedAt, path, syncState',
+      workspaces: 'id, updatedAt', fileNodes: 'id, repositoryId, [repositoryId+path], [repositoryId+parentPath], [repositoryId+kind], documentId',
+      binaryDocuments: 'id, repositoryId, title, createdAt, updatedAt, path, syncState', searchDocuments: 'id, documentType, sourceUpdatedAt, *grams', settings: 'id',
     });
   }
 }
@@ -179,10 +185,14 @@ export const noteStore = {
 
 /** Persists open tabs and repository workspace state locally. */
 export const workspaceStore = {
-  async get(): Promise<WorkspaceSnapshot | undefined> {
-    return (await database.workspaces.get('default'))?.snapshot;
+  async get(): Promise<WorkspaceSnapshot | undefined> { return (await database.workspaces.get('default'))?.snapshot; },
+  async save(snapshot: WorkspaceSnapshot): Promise<void> { await database.workspaces.put({ id: 'default', snapshot, updatedAt: Date.now() }); },
+};
+
+export const settingsStore = {
+  async get(): Promise<AppPreferences> {
+    const stored = await database.settings.get('default');
+    return { ...DEFAULT_PREFERENCES, ...stored?.value };
   },
-  async save(snapshot: WorkspaceSnapshot): Promise<void> {
-    await database.workspaces.put({ id: 'default', snapshot, updatedAt: Date.now() });
-  },
+  async save(value: AppPreferences): Promise<void> { await database.settings.put({ id: 'default', value, updatedAt: Date.now() }); },
 };

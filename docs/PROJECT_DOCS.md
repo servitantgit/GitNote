@@ -211,3 +211,15 @@ Only after editor and local workspace foundations are ready:
 - Do not import unrelated upstream components such as `packages/convert`, server/Docker services, playgrounds, examples, upstream tests or build infrastructure unless a separately approved GitNote requirement needs them.
 - For each update, record the exact upstream tag/commit in `src/vendor/office-engine/UPSTREAM.md`; inspect the changed files, dependency and license implications, and adapt only the required runtime source. Preserve GitNote-specific adapters and integration code outside the vendored engine.
 - Verify the production TypeScript/Vite build, unit tests and Chromium workflows for DOCX, XLSX, PPTX and HTML. A vendor update is complete only after all three required CI jobs pass for the resulting `main` commit.
+
+
+## Settings
+
+The Settings dialog is implemented in `src/modules/settings`. Preferences are stored independently in the `settings` Dexie table under the existing `gitnote-local` database (schema version 8); the upgrade is additive and leaves notes, binary documents, file nodes, search index and workspace snapshots intact.
+
+Implemented preferences:
+- Appearance: system/light/dark theme and comfortable/compact workspace density.
+- Markdown editor: default Source/Live/Preview mode, editor font size, line wrapping, line numbers, and default visibility of Outline and minimap. CodeMirror 6 compartments reconfigure line wrapping and line-number gutters without replacing the editor state.
+- Workspace: restore open tabs on startup and remember the sidebar open/closed state.
+
+Disabling tab restoration starts with no previously open tabs; it does not delete documents. Settings do not configure Office, HTML or PDF viewer behavior. Backup/restore, GitHub connection settings, attachments and localization settings are not part of this dialog.

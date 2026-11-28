@@ -102,3 +102,11 @@ The office-engine runtime source lives inside `src/vendor/office-engine` and is 
 The vendored directory contains only the runtime source needed by GitNote plus its provenance and license files. Do not import the upstream repository wholesale: its server-side `packages/convert`, Docker services, playground, examples, tests and development tooling are outside this integration boundary. Do not use a tarball, package dependency or automatic subtree/HEAD tracking for updates.
 
 Updates are selective and manual. Review upstream changes against GitNote's actual needs, import only relevant runtime changes, inspect dependency/API/license changes, and update `src/vendor/office-engine/UPSTREAM.md` with the exact source tag and commit. Keep GitNote-specific format adapters and scroll behavior in `src/modules/documents`, not in the upstream vendor copy. Every engine update must pass unit tests, the TypeScript/Vite production build and Chromium tests for DOCX, XLSX, PPTX and HTML.
+
+
+## Settings and user preferences
+
+- `src/modules/settings` owns the Settings dialog and typed preference defaults.
+- Preferences are stored in the separate Dexie `settings` table through `settingsStore`; schema version 8 adds this table without rewriting existing workspace or document data.
+- The application shell applies theme and workspace density. Markdown-specific defaults are passed into `EditorWorkspace`; CodeMirror 6 `Compartment` instances reconfigure line wrapping and line-number gutters without replacing the per-tab editor state.
+- Workspace preferences control whether saved tabs are restored at startup and whether the sidebar open/closed state is remembered. These settings do not delete stored documents.

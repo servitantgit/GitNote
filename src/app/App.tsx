@@ -7,7 +7,9 @@ import { createOfficeDocumentBlob, type OfficeDocumentKind } from '../modules/do
 import { EditorWorkspace } from '../modules/editor/EditorWorkspace';
 import type { EditorMode } from '../modules/editor/types';
 import type { SearchMatchRange } from '../modules/search/search-query';
-import { workspaceStore } from '../infrastructure/storage/database';
+import { settingsStore, workspaceStore } from '../infrastructure/storage/database';
+import { DEFAULT_PREFERENCES, type AppPreferences } from '../modules/settings/preferences';
+import { SettingsDialog } from '../modules/settings/SettingsDialog';
 import type { BinaryDocumentRecord, DocumentRecord } from '../core/domain/document-source';
 import { binaryDocumentSource, documentSource } from '../infrastructure/storage/local-document-source';
 import { workspaceFileSystem } from '../infrastructure/storage/local-workspace-file-system';
@@ -64,7 +66,9 @@ function tabForBinary(document: Pick<BinaryDocumentRecord, 'id' | 'repositoryId'
 }
 
 export function App() {
-  const [mode, setMode] = useState<EditorMode>('source');
+  const [preferences, setPreferences] = useState<AppPreferences>(DEFAULT_PREFERENCES);
+  const [mode, setMode] = useState<EditorMode>(DEFAULT_PREFERENCES.defaultMode);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [notes, setNotes] = useState<DocumentRecord[]>([]);
   const [fileNodes, setFileNodes] = useState<WorkspaceFileNode[]>([]);
   const [selectedFolderPath, setSelectedFolderPath] = useState('');
@@ -86,6 +90,32 @@ export function App() {
   const activeNoteIdRef = useRef<string | null>(null);
   const editorStatesRef = useRef(new Map<string, EditorState>());
   const scrollPositionsRef = useRef(new Map<string, DocumentScrollPosition>());
+
+  const updatePreferences = useCallback((next: AppPreferences) => {
+    const value = next.rememberSidebarState && !preferences.rememberSidebarState ? { ...next, sidebarOpen } : next;
+    setPreferences(value);
+    if (value.defaultMode !== preferences.defaultMode) setMode(value.defaultMode);
+    void settingsStore.save(value).catch(error => setStorageError(error instanceof Error ? error.message : 'Не вдалося зберегти налаштування.'));
+  }, [preferences, sidebarOpen]);
+
+  const toggleSidebar = () => {
+    const next = !sidebarOpen;
+    setSidebarOpen(next);
+    if (preferences.rememberSidebarState) updatePreferences({ ...preferences, sidebarOpen: next });
+  };
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      const dark = preferences.theme === 'dark' || (preferences.theme === 'system' && media.matches);
+      root.dataset.theme = dark ? 'dark' : 'light';
+    };
+    applyTheme();
+    if (preferences.theme !== 'system') return;
+    media.addEventListener('change', applyTheme);
+    return () => media.removeEventListener('change', applyTheme);
+  }, [preferences.theme]);
 
   const activeTab = useMemo(
     () => workspace?.tabs.find(tab => tab.id === workspace.activeTabId) ?? null,
@@ -129,11 +159,14 @@ export function App() {
     async function loadWorkspace() {
       try {
         await Promise.all(['Notes', 'Documents'].map(ensureWorkspaceFolder));
-        const [documentMetas, savedWorkspace, binaryMetas] = await Promise.all([
-          documentSource.list(),
-          workspaceStore.get(),
-          binaryDocumentSource.list(),
+        const [documentMetas, savedWorkspace, binaryMetas, loadedPreferences] = await Promise.all([
+          documentSource.list(), workspaceStore.get(), binaryDocumentSource.list(), settingsStore.get(),
         ]);
+        setPreferences(loadedPreferences);
+        setMode(loadedPreferences.defaultMode);
+        setSidebarOpen(loadedPreferences.rememberSidebarState ? loadedPreferences.sidebarOpen : true);
+        const workspaceToRestore = loadedPreferences.restoreTabs ? savedWorkspace
+          : savedWorkspace ? { ...savedWorkspace, tabs: [], activeTabId: null } : undefined;
         let storedNotes = await Promise.all(documentMetas.map(async meta => ({
           ...meta,
           ...await documentSource.read(meta.id),
@@ -147,7 +180,7 @@ export function App() {
           nextNotes = [welcomeNote];
         }
 
-        const manager = new WorkspaceManager(savedWorkspace ?? undefined);
+        const manager = new WorkspaceManager(workspaceToRestore ?? undefined);
         if (!manager.getSnapshot().repositories.some(repository => repository.id === LOCAL_REPOSITORY_ID)) {
           manager.registerRepository(LOCAL_REPOSITORY);
         }
@@ -463,14 +496,14 @@ export function App() {
     : null;
 
   return (
-    <main className="app-shell">
+    <main className={"app-shell" + (preferences.density === "compact" ? " density-compact" : "")}>
       <header className="topbar">
-        <button className="icon-button mobile-toggle" aria-label="Перемкнути навігацію" onClick={() => setSidebarOpen(!sidebarOpen)}><PanelLeftClose size={18} /></button>
+        <button className="icon-button mobile-toggle" aria-label="Перемкнути навігацію" onClick={toggleSidebar}><PanelLeftClose size={18} /></button>
         <div className="brand-mark">G</div><strong className="brand-name">GitNotes</strong>
         <div className="repo-indicator"><GitBranch size={15} /><span>{activeRepository?.name ?? 'Репозиторій не активний'}</span></div>
         <div className="top-actions">
           <button className="icon-button" aria-label="Пошук у робочому просторі" title="Пошук по всіх локальних нотатках і документах" onClick={() => setSearchOpen(true)} disabled={saveState === 'loading'}><Search size={18} /></button>
-          <button className="icon-button" aria-label="Налаштування" title="Налаштування (ще не реалізовано)" disabled><Settings size={18} /></button>
+          <button className="icon-button" aria-label="Налаштування" title="Налаштування" onClick={() => setSettingsOpen(true)}><Settings size={18} /></button>
         </div>
       </header>
       {storageError && <div className="storage-error" role="alert">{storageError}</div>}
@@ -536,11 +569,16 @@ export function App() {
                     : <Suspense fallback={<div className="office-viewer-loading">Завантаження редактора документа…</div>}><OfficeDocumentViewer document={document} onSave={save} onDirtyChange={dirty} onError={error} printRequest={ui.printRequest} downloadRequest={ui.downloadRequest} /></Suspense>}
               </div>;
             })}
-            {activeNote && <div className="workspace-document-panel"><EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode} content={activeNote.content} onContentChange={handleEditorContentChange} searchNavigation={searchNavigation?.documentId === activeNote.id ? searchNavigation : undefined} /></div>}
+            {activeNote && <div className="workspace-document-panel"><EditorWorkspace documentId={activeNote.id} editorStates={editorStatesRef.current} scrollPosition={scrollPositionsRef.current.get(activeNote.id)} onScrollPositionChange={handleScrollPositionChange} mode={mode} onModeChange={setMode}
+                lineWrapping={preferences.lineWrapping} lineNumbersEnabled={preferences.lineNumbers}
+                fontSize={preferences.editorFontSize} outlineOpenByDefault={preferences.outlineOpenByDefault}
+                minimapOpenByDefault={preferences.minimapOpenByDefault}
+                content={activeNote.content} onContentChange={handleEditorContentChange} searchNavigation={searchNavigation?.documentId === activeNote.id ? searchNavigation : undefined} /></div>}
             {!activeNote && !activeBinaryDocument && <div className="empty-workspace">Виберіть нотатку або створіть нову</div>}
           </div>
         </section>
       </div>
+      {settingsOpen && <SettingsDialog preferences={preferences} onChange={updatePreferences} onClose={() => setSettingsOpen(false)} />}
       {searchOpen && <Suspense fallback={<div className="workspace-search-loading" role="status">Завантаження пошуку…</div>}><SearchDialog notes={notes} onClose={() => setSearchOpen(false)} onOpenResult={result => {
         setSearchOpen(false);
         if (result.documentType === 'note') {
