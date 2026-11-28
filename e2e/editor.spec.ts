@@ -1017,7 +1017,7 @@ test('imports PDF into the dedicated read-only viewer and downloads the original
   ].join('\n'));
 
   await page.locator('input[aria-label="Файл для імпорту"]').setInputFiles({
-    name: 'sample.pdf',
+    name: '2026-sample.pdf',
     mimeType: 'application/pdf',
     buffer: pdf,
   });
@@ -1030,5 +1030,5 @@ test('imports PDF into the dedicated read-only viewer and downloads the original
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Завантажити файл' }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe('sample.pdf');
+  expect(download.suggestedFilename()).toBe('2026-sample.pdf');
 });
