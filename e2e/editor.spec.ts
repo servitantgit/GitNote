@@ -233,7 +233,7 @@ test('closes the last tab without deleting the note and keeps the workspace tabl
     });
   }, title);
 
-  await page.locator('.document-tab.active .tab-close').click();
+  await page.getByRole('button', { name: 'Закрити вкладку' }).click();
   await expect(tabs).toHaveCount(0);
   await expect(page.locator('.workspace-document-panel')).toHaveCount(0);
   expect(await readStoredWelcomeNote()).toBe(true);
@@ -1171,7 +1171,7 @@ test('searches all local Markdown notes, including notes whose tabs are closed',
   await page.locator('.cm-content').fill('A unique phrase in a closed local note.');
   await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
 
-  await page.getByRole('button', { name: 'Закрити вкладку' }).click();
+  await page.locator('.document-tab.active .tab-close').click();
   await page.getByRole('button', { name: 'Пошук у робочому просторі' }).click();
   await page.getByLabel('Пошуковий запит').fill('unique phrase');
   await page.getByRole('button', { name: 'Знайти' }).click();
