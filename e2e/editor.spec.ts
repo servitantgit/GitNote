@@ -91,9 +91,8 @@ async function importOfficeFile(page: import('@playwright/test').Page, name: str
 
 async function saveOfficeFile(page: import('@playwright/test').Page) {
   await expect(page.locator('.save-indicator')).toHaveText('Є незбережені зміни');
-  const saveButton = page.locator('button[aria-label^="Save"]').first();
-  await expect(saveButton).toBeVisible();
-  await saveButton.click();
+  // GitNotes disables the Office file menu; the engine's supported host save shortcut remains available.
+  await page.keyboard.press('Control+s');
   await expect(page.locator('.save-indicator')).toHaveText('Збережено локально');
 }
 
