@@ -12,6 +12,12 @@ describe('createOfficeDocumentBlob', () => {
     const blob = await createOfficeDocumentBlob(kind);
     expect(blob.size).toBeGreaterThan(0);
     expect(blob.type).toBe(mime);
-    expect([...new Uint8Array(await blob.slice(0, 4).arrayBuffer())]).toEqual([0x50, 0x4b, 0x03, 0x04]);
+    const signature = await new Promise<number[]>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve([...new Uint8Array(reader.result as ArrayBuffer)]);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(blob.slice(0, 4));
+    });
+    expect(signature).toEqual([0x50, 0x4b, 0x03, 0x04]);
   });
 });
