@@ -50,7 +50,7 @@ Desktop/laptop is the primary work environment. Mobile is intended mainly for qu
 
 ### Application shell and notes
 
-- React application shell with local note list, global document tabs and a document title field.
+- React application shell with a unified VFS file tree, global document tabs and format-specific document surfaces. Binary documents use a compact shared action row because the Office/HTML/PDF surface already presents its own filename and format controls.
 - Create, select, rename and delete local notes. New note records and their VFS file nodes are created in one IndexedDB transaction.
 - Debounced local autosave through IndexedDB/Dexie.
 - Local-only status is shown; GitHub authentication and remote repository selection are not implemented.
