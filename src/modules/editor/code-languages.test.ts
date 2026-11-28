@@ -21,6 +21,6 @@ describe('Markdown fenced-code language highlighting', () => {
 
     const [javaSupport, pythonSupport] = await Promise.all([java!.load(), python!.load()]);
     expect(javaSupport.language.parser.parse('public class Demo {}').length).toBeGreaterThan(0);
-    expect(pythonSupport.language.parser.parse('def greet(name):\\n    return name').length).toBeGreaterThan(0);
+    expect(pythonSupport.language.parser.parse('def greet(name):\n    return name').length).toBeGreaterThan(0);
   });
 });
